@@ -132,7 +132,7 @@ pub fn capture_screen(app: &AppHandle) -> Result<ScreenshotResult, String> {
     finish(app, started, rgba)
 }
 
-#[cfg(not(target_os = "macos"))]
+#[cfg(target_os = "windows")]
 pub fn capture_screen(app: &AppHandle) -> Result<ScreenshotResult, String> {
     use screenshots::Screen;
 
@@ -147,6 +147,11 @@ pub fn capture_screen(app: &AppHandle) -> Result<ScreenshotResult, String> {
     let rgba = RgbaImage::from_raw(captured.width(), captured.height(), captured.into_raw())
         .ok_or_else(|| "invalid capture buffer".to_string())?;
     finish(app, started, rgba)
+}
+
+#[cfg(not(any(target_os = "macos", target_os = "windows")))]
+pub fn capture_screen(_app: &AppHandle) -> Result<ScreenshotResult, String> {
+    Err("InterviewVeil supports screen capture on macOS and Windows only.".into())
 }
 
 pub fn read_for_ai(paths: &[String]) -> Result<Vec<ScreenshotPayload>, String> {

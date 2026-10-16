@@ -31,12 +31,11 @@ jobs:
       - run: npm run build
 
   rust:
-    name: Rust (cargo check)
+    name: Rust (cargo check, Linux compile smoke)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
 
-      # Tauri on Linux needs GTK/WebKit dev packages (even though we ship macOS + Windows).
       - name: Install Linux build dependencies
         run: |
           sudo apt-get update
