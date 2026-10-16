@@ -10,12 +10,19 @@ on:
   push:
     tags: ["v*"]
   workflow_dispatch:
+    inputs:
+      version:
+        description: Release tag (e.g. v0.1.0) — creates GitHub Release + uploads to R2
+        required: true
+        default: v0.1.0
 
 permissions:
   contents: write
 
 jobs:
   build:
+    env:
+      RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
     strategy:
       fail-fast: false
       matrix:
@@ -59,8 +66,8 @@ jobs:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           projectPath: .
-          tagName: ${{ github.ref_name }}
-          releaseName: InterviewVeil ${{ github.ref_name }}
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: InterviewVeil ${{ env.RELEASE_TAG }}
           releaseBody: Download the installer for your platform below.
           releaseDraft: false
           includeUpdaterJson: true
@@ -70,6 +77,7 @@ jobs:
         shell: bash
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ env.RELEASE_TAG }}
         run: |
           if [ "${{ matrix.platform }}" = "macos-latest" ]; then
             src=$(ls src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -1)
@@ -79,7 +87,7 @@ jobs:
             dest=InterviewVeil-windows-setup.exe
           fi
           cp "$src" "$dest"
-          gh release upload "${{ github.ref_name }}" "$dest" --clobber
+          gh release upload "${RELEASE_TAG}" "$dest" --clobber
 
       - name: Publish installer to Cloudflare R2
         shell: bash
