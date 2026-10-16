@@ -23,6 +23,7 @@ jobs:
   build:
     env:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
+      NO_UPDATER_CONFIG: '{"bundle":{"createUpdaterArtifacts":false}}'
     strategy:
       fail-fast: false
       matrix:
@@ -51,30 +52,65 @@ jobs:
 
       - run: npm ci
 
-      # Apple signing is opt-in (repo variable MACOS_CODE_SIGNING=true). Otherwise macOS builds
-      # unsigned — fine for R2 / beta; Gatekeeper will warn until you enable signing.
-      - name: macOS signing mode
-        if: matrix.platform == 'macos-latest'
+      - name: Release signing flags
+        id: release_flags
+        shell: bash
         run: |
-          if [ "${{ vars.MACOS_CODE_SIGNING }}" = "true" ]; then
-            echo "MACOS_CODE_SIGNING=true — importing APPLE_* secrets for codesign + notarization"
+          mac_sign=false
+          if [ "${{ matrix.platform }}" = "macos-latest" ] && [ "${{ vars.MACOS_CODE_SIGNING }}" = "true" ]; then
+            mac_sign=true
+          fi
+          updater_sign=false
+          if [ "${{ vars.TAURI_UPDATER_SIGNING }}" = "true" ]; then
+            updater_sign=true
+          fi
+          echo "mac_sign=$mac_sign" >> "$GITHUB_OUTPUT"
+          echo "updater_sign=$updater_sign" >> "$GITHUB_OUTPUT"
+          if [ "$mac_sign" = "true" ]; then
+            echo "macOS: Apple codesign + notarization (MACOS_CODE_SIGNING=true)"
+          elif [ "${{ matrix.platform }}" = "macos-latest" ]; then
+            echo "macOS: unsigned build (--no-sign, no APPLE_* env)"
+          fi
+          if [ "$updater_sign" = "true" ]; then
+            echo "Tauri updater signing enabled (TAURI_UPDATER_SIGNING=true)"
           else
-            echo "MACOS_CODE_SIGNING is not true — building unsigned macOS bundle (no keychain import)"
+            echo "Tauri updater artifacts disabled (installer-only release)"
           fi
 
-      - uses: tauri-apps/tauri-action@v0
+      # tauri-action forwards APPLE_* even when empty, which triggers keychain import failures.
+      - name: Build release (macOS signed)
+        if: matrix.platform == 'macos-latest' && steps.release_flags.outputs.mac_sign == 'true'
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_WEB_URL: ${{ vars.VITE_WEB_URL }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ steps.release_flags.outputs.updater_sign == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ steps.release_flags.outputs.updater_sign == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: .
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: InterviewVeil ${{ env.RELEASE_TAG }}
+          releaseBody: Download the installer for your platform below.
+          releaseDraft: false
+          includeUpdaterJson: ${{ steps.release_flags.outputs.updater_sign == 'true' }}
+          args: ${{ steps.release_flags.outputs.updater_sign == 'true' && matrix.args || format('{0} --config {1}', matrix.args, env.NO_UPDATER_CONFIG) }}
+
+      - name: Build release (Windows + updater signing)
+        if: matrix.platform == 'windows-latest' && steps.release_flags.outputs.updater_sign == 'true'
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           VITE_API_URL: ${{ vars.VITE_API_URL }}
           VITE_WEB_URL: ${{ vars.VITE_WEB_URL }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_CERTIFICATE: ${{ vars.MACOS_CODE_SIGNING == 'true' && secrets.APPLE_CERTIFICATE || '' }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ vars.MACOS_CODE_SIGNING == 'true' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
-          APPLE_SIGNING_IDENTITY: ${{ vars.MACOS_CODE_SIGNING == 'true' && secrets.APPLE_SIGNING_IDENTITY || '' }}
-          APPLE_ID: ${{ vars.MACOS_CODE_SIGNING == 'true' && secrets.APPLE_ID || '' }}
-          APPLE_PASSWORD: ${{ vars.MACOS_CODE_SIGNING == 'true' && secrets.APPLE_PASSWORD || '' }}
-          APPLE_TEAM_ID: ${{ vars.MACOS_CODE_SIGNING == 'true' && secrets.APPLE_TEAM_ID || '' }}
         with:
           projectPath: .
           tagName: ${{ env.RELEASE_TAG }}
@@ -83,6 +119,22 @@ jobs:
           releaseDraft: false
           includeUpdaterJson: true
           args: ${{ matrix.args }}
+
+      - name: Build release (unsigned / no updater signing)
+        if: (matrix.platform == 'macos-latest' && steps.release_flags.outputs.mac_sign != 'true') || (matrix.platform == 'windows-latest' && steps.release_flags.outputs.updater_sign != 'true')
+        uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_WEB_URL: ${{ vars.VITE_WEB_URL }}
+        with:
+          projectPath: .
+          tagName: ${{ env.RELEASE_TAG }}
+          releaseName: InterviewVeil ${{ env.RELEASE_TAG }}
+          releaseBody: Download the installer for your platform below.
+          releaseDraft: false
+          includeUpdaterJson: false
+          args: ${{ matrix.platform == 'macos-latest' && format('{0} --no-sign --config {1}', matrix.args, env.NO_UPDATER_CONFIG) || format('--config {0}', env.NO_UPDATER_CONFIG) }}
 
       - name: Upload stable-named installer
         shell: bash

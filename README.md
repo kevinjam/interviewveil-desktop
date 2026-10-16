@@ -89,10 +89,7 @@ https://cdn.interviewveil.com/v1/InterviewVeil-windows-setup.exe
 **Fallback:** GitHub `releases/latest/download/...` URLs via `VITE_DOWNLOAD_MAC_URL` / `VITE_DOWNLOAD_WINDOWS_URL`.
 
 **Before the first release:**
-1. **Updater keys.** Run `npm run tauri signer generate`.
-   - Put the public key in `src-tauri/tauri.conf.json` → `plugins.updater.pubkey`.
-   - Replace `OWNER/REPO` in `plugins.updater.endpoints`.
-   - Add the private key and its password as the repo secrets `TAURI_SIGNING_PRIVATE_KEY` and `TAURI_SIGNING_PRIVATE_KEY_PASSWORD`. Builds fail without them, because updater artifacts are enabled.
+1. **Auto-updater (optional).** Installer-only releases work without this. When ready: run `npm run tauri signer generate`, set `plugins.updater.pubkey` and fix `plugins.updater.endpoints`, set `bundle.createUpdaterArtifacts` to `true` in `tauri.conf.json`, add secrets `TAURI_SIGNING_PRIVATE_KEY` / `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (paste the **full** generated key including the `comment:` line), and set repo variable `TAURI_UPDATER_SIGNING=true`.
 2. **Repository variables.** Set `VITE_API_URL` and `VITE_WEB_URL`.
 3. **macOS signing (optional for R2).** CI builds **unsigned** macOS installers unless you set repository variable `MACOS_CODE_SIGNING=true` and add `APPLE_*` secrets. See [`docs/macos-signing.md`](docs/macos-signing.md). `src-tauri/Entitlements.plist` grants microphone access under the hardened runtime when you do sign.
 4. **Windows signing (recommended).** Use Azure Trusted Signing or an OV certificate, to avoid SmartScreen warnings.
