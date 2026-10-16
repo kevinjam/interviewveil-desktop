@@ -1,0 +1,54 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleIdentifier</key>
+  <string>com.interviewveil.app</string>
+  <key>CFBundleName</key>
+  <string>InterviewVeil</string>
+  <key>CFBundleDisplayName</key>
+  <string>InterviewVeil</string>
+  <key>CFBundleExecutable</key>
+  <string>interviewveil</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleVersion</key>
+  <string>0.1.0</string>
+  <key>CFBundleShortVersionString</key>
+  <string>0.1.0</string>
+  <key>CFBundleSignature</key>
+  <string>????</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <key>NSAppTransportSecurity</key>
+  <dict>
+    <key>NSAllowsLocalNetworking</key>
+    <true/>
+    <key>NSAllowsArbitraryLoads</key>
+    <true/>
+    <key>NSExceptionDomains</key>
+    <dict>
+      <key>localhost</key>
+      <dict>
+        <key>NSExceptionAllowsInsecureHTTPLoads</key>
+        <true/>
+        <key>NSIncludesSubdomains</key>
+        <true/>
+      </dict>
+      <key>127.0.0.1</key>
+      <dict>
+        <key>NSExceptionAllowsInsecureHTTPLoads</key>
+        <true/>
+      </dict>
+    </dict>
+  </dict>
+  <key>NSLocalNetworkUsageDescription</key>
+  <string>InterviewVeil connects to the local InterviewVeil API while you practice.</string>
+  <key>NSMicrophoneUsageDescription</key>
+  <string>InterviewVeil records your spoken answers during practice sessions so they can be transcribed and reviewed.</string>
+  <key>NSScreenCaptureUsageDescription</key>
+  <string>InterviewVeil captures screenshots of coding problems and can listen to system audio during practice.</string>
+  <key>NSAudioCaptureUsageDescription</key>
+  <string>InterviewVeil captures system audio during practice so it can hear the interviewer.</string>
+</dict>
+</plist>

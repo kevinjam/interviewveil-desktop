@@ -1,0 +1,109 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "InterviewVeil",
+  "version": "0.1.0",
+  "identifier": "com.interviewveil.app",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "login",
+        "title": "InterviewVeil",
+        "url": "login.html",
+        "width": 380,
+        "height": 320,
+        "resizable": false,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "visible": true,
+        "skipTaskbar": true,
+        "shadow": false
+      },
+      {
+        "label": "permissions",
+        "title": "InterviewVeil Setup",
+        "url": "permissions.html",
+        "width": 460,
+        "height": 600,
+        "resizable": false,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "shadow": false
+      },
+      {
+        "label": "island",
+        "title": "InterviewVeil Island",
+        "url": "island.html",
+        "width": 720,
+        "height": 610,
+        "resizable": false,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "shadow": false
+      },
+      {
+        "label": "chat",
+        "title": "InterviewVeil",
+        "url": "chat.html",
+        "width": 700,
+        "height": 186,
+        "minWidth": 520,
+        "minHeight": 160,
+        "maxHeight": 620,
+        "resizable": true,
+        "fullscreen": false,
+        "decorations": false,
+        "transparent": true,
+        "alwaysOnTop": true,
+        "visible": false,
+        "skipTaskbar": true,
+        "shadow": false
+      }
+    ],
+    "security": {
+      "csp": null
+    },
+    "macOSPrivateApi": true
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ],
+    "createUpdaterArtifacts": true,
+    "macOS": {
+      "entitlements": "./Entitlements.plist",
+      "minimumSystemVersion": "13.0"
+    },
+    "publisher": "InterviewVeil",
+    "shortDescription": "AI interview practice coach"
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "",
+      "endpoints": [
+        "https://github.com/OWNER/REPO/releases/latest/download/latest.json"
+      ]
+    }
+  }
+}

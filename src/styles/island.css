@@ -1,0 +1,282 @@
+.island-root {
+  position: relative;
+  flex: 1;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.island-shell {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: var(--pill-w, 380px);
+  height: 38px;
+  transform: translate(-50%, 10px);
+  border-radius: 19px;
+  background: var(--material-strong);
+  border: 1px solid var(--material-border);
+  box-shadow: var(--float-shadow);
+  overflow: hidden;
+  will-change: width, height, transform, border-radius;
+  transition:
+    width 0.46s var(--ease-spring),
+    height 0.44s var(--ease-spring),
+    border-radius 0.46s var(--ease-spring),
+    transform 0.46s var(--ease-spring),
+    background 0.25s ease;
+}
+
+.island-shell[data-expanded="true"] {
+  width: 460px;
+  height: var(--island-h, 320px);
+  min-height: 280px;
+  border-radius: 22px;
+  transform: translate(-50%, 0);
+  background: var(--material-strong);
+}
+
+.island-pill-layer {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  margin: 0;
+  padding: 0;
+  cursor: default;
+  background: transparent;
+  border: none;
+  opacity: 1;
+  transition:
+    opacity 0.18s ease,
+    transform 0.26s var(--ease-soft);
+}
+
+.island-shell[data-expanded="true"] .island-pill-layer {
+  opacity: 0;
+  transform: scale(0.97);
+  pointer-events: none;
+}
+
+.island-pill-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  width: max-content;
+  padding: 0 8px 0 12px;
+  white-space: nowrap;
+}
+
+.island-panel-layer {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 460px;
+  max-height: 460px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 11px;
+  overflow: hidden;
+  opacity: 0;
+  transform: translateY(-5px) scale(0.99);
+  pointer-events: none;
+  transition:
+    opacity 0.2s ease,
+    transform 0.36s var(--ease-spring);
+}
+
+.island-shell[data-expanded="true"] .island-panel-layer {
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  pointer-events: auto;
+  transition-delay: 0.06s;
+}
+
+.island-clickthrough {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 22px;
+  padding: 0 4px 0 7px;
+  border-radius: 999px;
+  background: var(--panel-2);
+  border: 1px solid var(--border);
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.island-activity {
+  position: relative;
+  width: 18px;
+  height: 5px;
+  flex: 0 0 auto;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 20%, transparent);
+}
+
+.island-activity > span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 7px;
+  height: 5px;
+  border-radius: inherit;
+  background: var(--muted);
+  transform: translateX(5.5px);
+}
+
+.island-activity[data-active="true"] > span {
+  background: var(--text);
+  animation: island-glide 1.25s ease-in-out infinite alternate;
+}
+
+.island-activity[data-ready="true"] > span {
+  width: 18px;
+  transform: none;
+  background: #34d399;
+}
+
+@keyframes island-glide {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(11px);
+  }
+}
+
+.island-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.island-tabs {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  flex-wrap: wrap;
+}
+
+.island-tab {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 9px;
+  border-radius: var(--radius-xs);
+  color: var(--muted);
+  font-size: 12.5px;
+  font-weight: 600;
+  border: none;
+  background: transparent;
+  cursor: default;
+  transition:
+    background 0.18s ease,
+    color 0.18s ease,
+    transform 0.24s var(--ease-soft);
+}
+
+.island-tab:hover {
+  color: var(--text);
+}
+
+.island-tab[data-active="true"] {
+  background: var(--panel-2);
+  color: var(--text);
+}
+
+.island-ghost-btn {
+  display: grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: var(--radius-xs);
+  color: var(--muted);
+  border: none;
+  background: transparent;
+  cursor: default;
+}
+
+.island-ghost-btn:hover {
+  background: var(--hover);
+  color: var(--text);
+}
+
+.island-ghost-danger:hover {
+  color: #f87171;
+}
+
+.island-rule {
+  height: 1px;
+  margin: 0 -14px;
+  background: var(--border);
+}
+
+.island-footer {
+  display: flex;
+  justify-content: space-between;
+  padding-top: 4px;
+  font-size: 10px;
+  color: var(--muted);
+  flex-shrink: 0;
+}
+
+/* Thin, theme-aware scrollbars inside the island panel. */
+.island-panel-layer * {
+  scrollbar-width: thin;
+  scrollbar-color: var(--border) transparent;
+}
+.island-panel-layer ::-webkit-scrollbar {
+  width: 6px;
+}
+.island-panel-layer ::-webkit-scrollbar-track {
+  background: transparent;
+}
+.island-panel-layer ::-webkit-scrollbar-thumb {
+  background: var(--border);
+  border-radius: 999px;
+}
+
+/* Thin slider: 3px track filled up to the thumb (`--fill`), small round thumb. */
+.island-range {
+  -webkit-appearance: none;
+  appearance: none;
+  display: block;
+  width: 100%;
+  height: 16px;
+  background: transparent;
+  cursor: pointer;
+}
+.island-range::-webkit-slider-runnable-track {
+  height: 3px;
+  border-radius: 999px;
+  background: linear-gradient(
+    to right,
+    var(--text) 0 var(--fill, 50%),
+    var(--border) var(--fill, 50%) 100%
+  );
+}
+.island-range::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  margin-top: -5.5px;
+  border-radius: 50%;
+  background: var(--text);
+  border: 2px solid var(--panel);
+  box-shadow: 0 0 0 1px var(--border);
+}
+.island-range:focus-visible {
+  outline: none;
+}
+.island-range:focus-visible::-webkit-slider-thumb {
+  box-shadow: 0 0 0 3px var(--ring);
+}

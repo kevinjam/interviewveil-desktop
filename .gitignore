@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+
+# Rust / Tauri
+src-tauri/target/
+
+# Tooling
+.DS_Store
+*.log
+tsconfig.tsbuildinfo

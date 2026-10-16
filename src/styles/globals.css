@@ -1,0 +1,177 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/*
+ * InterviewVeil brand tokens
+ *   Primary (dark)  #0B1220   Accent (electric blue)  #5B8CFF   Secondary (gray)  #94A3B8
+ * Dark theme: near-black canvas, #0B1220 surfaces, white/light-gray text.
+ * Light theme: white canvas, #0B1220 text and primary buttons.
+ */
+html.dark,
+html:not(.light) {
+  --bg: #05070d;
+  --panel: #0b1220;
+  --panel-2: #111a2e;
+  --hover: #172238;
+  --border: rgb(148 163 184 / 16%);
+  --text: #f8fafc;
+  --muted: #94a3b8;
+  --primary: #5b8cff;
+  --primary-fg: #ffffff;
+  --accent: #5b8cff;
+  --brand: #5b8cff;
+  --ring: rgb(91 140 255 / 40%);
+
+  --material: rgb(11 18 32 / 94%);
+  --material-strong: rgb(11 18 32 / 97%);
+  --material-border: rgb(148 163 184 / 14%);
+  --float-shadow: 0 12px 34px -10px rgb(0 0 0 / 65%);
+  --logo: url("/brand/mark-on-dark.png");
+}
+
+html.light {
+  --bg: #ffffff;
+  --panel: #ffffff;
+  --panel-2: #f4f6fa;
+  --hover: #eaeef5;
+  --border: rgb(11 18 32 / 10%);
+  --text: #0b1220;
+  /* #94A3B8 is too faint for body text on white (2.6:1); a darker slate keeps AA. */
+  --muted: #5b6577;
+  --primary: #0b1220;
+  --primary-fg: #ffffff;
+  --accent: #5b8cff;
+  --brand: #5b8cff;
+  --ring: rgb(91 140 255 / 35%);
+
+  --material: rgb(255 255 255 / 92%);
+  --material-strong: rgb(255 255 255 / 96%);
+  --material-border: rgb(11 18 32 / 9%);
+  --float-shadow: 0 12px 34px -12px rgb(11 18 32 / 22%);
+  --logo: url("/brand/mark.png");
+}
+
+:root {
+  --code-bg: #0b1220;
+  --code-border: rgb(148 163 184 / 16%);
+  --radius-xs: 7px;
+  --radius-sm: 9px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --ease-spring: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-soft: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+  background: transparent;
+}
+
+html {
+  background: transparent;
+}
+
+body {
+  font-family:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", system-ui,
+    Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased;
+  color: var(--text);
+  background: transparent;
+  user-select: none;
+}
+
+body[data-surface="overlay"] {
+  background: transparent;
+  overflow: visible;
+}
+
+body[data-surface="overlay"] #root {
+  overflow: visible;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+}
+
+/* In the base layer so Tailwind utilities (text size/colour) can override it. */
+@layer base {
+  button,
+  input,
+  select,
+  textarea,
+  a {
+    font: inherit;
+    color: inherit;
+  }
+}
+
+input,
+textarea {
+  user-select: text;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--muted);
+  opacity: 1;
+}
+
+select option {
+  background-color: var(--panel);
+  color: var(--text);
+}
+
+input[type="range"] {
+  accent-color: var(--brand);
+}
+
+.window-drag {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+
+.window-no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.chat-panel {
+  border: 1px solid var(--material-border);
+  border-radius: var(--radius-lg);
+  background: var(--material);
+  box-shadow: var(--float-shadow);
+  backdrop-filter: blur(20px) saturate(1.2);
+  -webkit-backdrop-filter: blur(20px) saturate(1.2);
+}
+
+@keyframes pop-in {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+@keyframes fade-in {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+  }
+  to {
+    opacity: 1;
+    filter: blur(0);
+  }
+}
+
+.screenshot-item {
+  animation: pop-in 0.34s var(--ease-spring) forwards;
+  animation-delay: calc(var(--index, 0) * 0.03s);
+}
+
+.island-pill {
+  -webkit-app-region: no-drag;
+}

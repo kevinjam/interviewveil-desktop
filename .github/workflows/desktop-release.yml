@@ -1,0 +1,106 @@
+# Builds, signs and publishes the desktop app when you push a tag like v0.2.0.
+# Installers land on the GitHub Release; stable-named copies make permanent links.
+# Optional: sync the same files to Cloudflare R2 (see docs/cloudflare-downloads.md).
+# Website CDN URLs (after R2 + custom domain):
+#   https://cdn.interviewveil.com/v1/InterviewVeil-mac.dmg
+#   https://cdn.interviewveil.com/v1/InterviewVeil-windows-setup.exe
+name: Desktop release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: macos-latest
+            args: --target universal-apple-darwin
+          - platform: windows-latest
+            args: ""
+    runs-on: ${{ matrix.platform }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.platform == 'macos-latest' && 'aarch64-apple-darwin,x86_64-apple-darwin' || '' }}
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri -> target
+
+      - run: npm ci
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          VITE_API_URL: ${{ vars.VITE_API_URL }}
+          VITE_WEB_URL: ${{ vars.VITE_WEB_URL }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        with:
+          projectPath: .
+          tagName: ${{ github.ref_name }}
+          releaseName: InterviewVeil ${{ github.ref_name }}
+          releaseBody: Download the installer for your platform below.
+          releaseDraft: false
+          includeUpdaterJson: true
+          args: ${{ matrix.args }}
+
+      - name: Upload stable-named installer
+        shell: bash
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          if [ "${{ matrix.platform }}" = "macos-latest" ]; then
+            src=$(ls src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg | head -1)
+            dest=InterviewVeil-mac.dmg
+          else
+            src=$(ls src-tauri/target/release/bundle/nsis/*-setup.exe | head -1)
+            dest=InterviewVeil-windows-setup.exe
+          fi
+          cp "$src" "$dest"
+          gh release upload "${{ github.ref_name }}" "$dest" --clobber
+
+      - name: Publish installer to Cloudflare R2
+        if: ${{ secrets.R2_ACCESS_KEY_ID != '' }}
+        shell: bash
+        env:
+          AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+          AWS_DEFAULT_REGION: auto
+          R2_ACCOUNT_ID: ${{ secrets.R2_ACCOUNT_ID }}
+          R2_BUCKET: ${{ vars.R2_BUCKET }}
+          R2_PREFIX: ${{ vars.R2_DOWNLOAD_PREFIX }}
+        run: |
+          if [ "${{ matrix.platform }}" = "macos-latest" ]; then
+            file=InterviewVeil-mac.dmg
+          else
+            file=InterviewVeil-windows-setup.exe
+          fi
+          prefix="${R2_PREFIX:-v1}"
+          endpoint="https://${R2_ACCOUNT_ID}.r2.cloudflarestorage.com"
+          aws s3 cp "$file" "s3://${R2_BUCKET}/${prefix}/${file}" \
+            --endpoint-url "$endpoint" \
+            --content-type "application/octet-stream" \
+            --content-disposition "attachment; filename=\"${file}\"" \
+            --cache-control "public, max-age=3600"

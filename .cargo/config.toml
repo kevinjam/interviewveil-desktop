@@ -1,0 +1,5 @@
+[target.aarch64-apple-darwin]
+linker = "src-tauri/scripts/macos-linker.sh"
+
+[target.x86_64-apple-darwin]
+linker = "src-tauri/scripts/macos-linker.sh"

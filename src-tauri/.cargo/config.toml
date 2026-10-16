@@ -1,0 +1,7 @@
+[target.aarch64-apple-darwin]
+linker = "scripts/macos-linker.sh"
+runner = "scripts/macos-dev-run.sh"
+
+[target.x86_64-apple-darwin]
+linker = "scripts/macos-linker.sh"
+runner = "scripts/macos-dev-run.sh"
