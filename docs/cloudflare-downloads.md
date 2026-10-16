@@ -27,8 +27,10 @@ Upload with prefix `v1/` (configurable via `R2_DOWNLOAD_PREFIX`).
 
 ## 3. API token for CI
 
+Configure these on **`kevinjam/interviewveil-desktop`** (the desktop app repo). Secrets on another repo (backend, landing, monorepo) are **not** visible to the desktop release workflow.
+
 1. **R2** → **Manage R2 API Tokens** → Create token with **Object Read & Write** on this bucket.
-2. Add GitHub repository **secrets**:
+2. Add GitHub repository **secrets** (Settings → Secrets and variables → Actions):
    - `R2_ACCESS_KEY_ID`
    - `R2_SECRET_ACCESS_KEY`
    - `R2_ACCOUNT_ID` (Cloudflare account ID)
@@ -36,7 +38,18 @@ Upload with prefix `v1/` (configurable via `R2_DOWNLOAD_PREFIX`).
    - `R2_BUCKET` = bucket name (e.g. `interviewveil-downloads`)
    - `R2_DOWNLOAD_PREFIX` = `v1` (optional; defaults to `v1` in the workflow)
 
-On tag push, `desktop-release.yml` uploads each installer to R2 after attaching it to the GitHub Release.
+On tag push (or manual **Desktop release** dispatch), `desktop-release.yml` uploads each installer to R2 **after** the Tauri build succeeds. Pushing `main` alone does **not** run this workflow.
+
+**Verify wiring:** Actions → **R2 smoke test** → Run workflow. You should see `OK` for each secret/variable. Re-run after adding secrets (old runs do not pick up new values).
+
+**Troubleshooting**
+
+| Symptom | Cause |
+|--------|--------|
+| Workflow file invalid / never runs | Push fixed `desktop-release.yml` to `main` |
+| `R2 not configured` in logs | Secrets/vars on wrong repo, or run started before secrets existed — re-run |
+| R2 step never appears | Build failed earlier (e.g. missing `TAURI_SIGNING_*` secrets) |
+| Upload skipped on push to `main` | Release workflow only runs on `v*` tags or workflow_dispatch |
 
 ## 4. Landing site (Vercel)
 
