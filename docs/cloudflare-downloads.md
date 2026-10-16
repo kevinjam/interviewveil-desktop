@@ -60,6 +60,7 @@ Pushing `main` without a tag does **not** run the release workflow.
 | `R2 not configured` in logs | Secrets/vars on wrong repo, or run started before secrets existed — re-run |
 | R2 step never appears | Build failed earlier (e.g. missing `TAURI_SIGNING_*` secrets) |
 | Upload skipped on push to `main` | Release workflow only runs on `v*` tags or workflow_dispatch |
+| `failed to import keychain certificate` on macOS | Invalid `APPLE_*` secrets — leave `MACOS_CODE_SIGNING` unset for unsigned builds; see [`macos-signing.md`](macos-signing.md) |
 
 ## 4. Landing site (Vercel)
 

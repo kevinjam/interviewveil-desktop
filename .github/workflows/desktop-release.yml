@@ -51,6 +51,17 @@ jobs:
 
       - run: npm ci
 
+      # Apple signing is opt-in (repo variable MACOS_CODE_SIGNING=true). Otherwise macOS builds
+      # unsigned — fine for R2 / beta; Gatekeeper will warn until you enable signing.
+      - name: macOS signing mode
+        if: matrix.platform == 'macos-latest'
+        run: |
+          if [ "${{ vars.MACOS_CODE_SIGNING }}" = "true" ]; then
+            echo "MACOS_CODE_SIGNING=true — importing APPLE_* secrets for codesign + notarization"
+          else
+            echo "MACOS_CODE_SIGNING is not true — building unsigned macOS bundle (no keychain import)"
+          fi
+
       - uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -58,12 +69,12 @@ jobs:
           VITE_WEB_URL: ${{ vars.VITE_WEB_URL }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_CERTIFICATE: ${{ vars.MACOS_CODE_SIGNING == 'true' && secrets.APPLE_CERTIFICATE || '' }}
+          APPLE_CERTIFICATE_PASSWORD: ${{ vars.MACOS_CODE_SIGNING == 'true' && secrets.APPLE_CERTIFICATE_PASSWORD || '' }}
+          APPLE_SIGNING_IDENTITY: ${{ vars.MACOS_CODE_SIGNING == 'true' && secrets.APPLE_SIGNING_IDENTITY || '' }}
+          APPLE_ID: ${{ vars.MACOS_CODE_SIGNING == 'true' && secrets.APPLE_ID || '' }}
+          APPLE_PASSWORD: ${{ vars.MACOS_CODE_SIGNING == 'true' && secrets.APPLE_PASSWORD || '' }}
+          APPLE_TEAM_ID: ${{ vars.MACOS_CODE_SIGNING == 'true' && secrets.APPLE_TEAM_ID || '' }}
         with:
           projectPath: .
           tagName: ${{ env.RELEASE_TAG }}

@@ -39,7 +39,8 @@ mod windows {
             .0 as isize;
         let hwnd = HWND(hwnd as *mut _);
 
-        if SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE).is_err() {
+        let ok = unsafe { SetWindowDisplayAffinity(hwnd, WDA_EXCLUDEFROMCAPTURE).is_ok() };
+        if !ok {
             return Err("SetWindowDisplayAffinity failed".to_string());
         }
         Ok(())
