@@ -54,7 +54,24 @@ Shortcuts are global, so they work while InterviewVeil is hidden or another app 
 
 ## Release
 
-Releases are built by GitHub Actions ([`.github/workflows/desktop-release.yml`](.github/workflows/desktop-release.yml)) when you push a tag:
+**Desktop CI** (green on every `main` push) only type-checks the app. It does **not** build installers or upload to R2.
+
+**Desktop release** is what builds `.dmg` / `.exe`, creates a GitHub Release, and copies installers to **Cloudflare R2** (when R2 secrets are set). You will not see a release run until you start it:
+
+### Option A — tag (recommended)
+
+```bash
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+### Option B — manual
+
+GitHub → **Actions** → **Desktop release** → **Run workflow** → branch `main` → version `v0.1.0` → Run.
+
+Then open the run log → job **build** → step **Publish installer to Cloudflare R2** (should say `Uploading installer to s3://…`).
+
+Releases are built by [`.github/workflows/desktop-release.yml`](.github/workflows/desktop-release.yml):
 
 ```bash
 git tag v0.2.0 && git push origin v0.2.0

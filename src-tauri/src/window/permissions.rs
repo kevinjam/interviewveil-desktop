@@ -5,6 +5,7 @@ use tauri::AppHandle;
 
 #[derive(Debug, Clone, Copy, Serialize)]
 #[serde(rename_all = "kebab-case")]
+#[allow(dead_code)] // Denied / NotDetermined are returned to the UI and via serde
 pub enum PermissionState {
     Granted,
     Denied,

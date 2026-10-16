@@ -125,6 +125,10 @@ fn window_by_label(app: &AppHandle, label: &str) -> Result<WebviewWindow, String
         .ok_or_else(|| format!("window '{label}' not found"))
 }
 
+#[cfg_attr(
+    not(any(target_os = "macos", target_os = "windows")),
+    allow(unused_variables)
+)]
 fn apply_opacity(window: &WebviewWindow, opacity: f64) -> Result<(), String> {
     let clamped = opacity.clamp(0.2, 1.0);
 

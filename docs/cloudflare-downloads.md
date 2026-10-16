@@ -38,7 +38,17 @@ Configure these on **`kevinjam/interviewveil-desktop`** (the desktop app repo). 
    - `R2_BUCKET` = bucket name (e.g. `interviewveil-downloads`)
    - `R2_DOWNLOAD_PREFIX` = `v1` (optional; defaults to `v1` in the workflow)
 
-On tag push (or manual **Desktop release** dispatch), `desktop-release.yml` uploads each installer to R2 **after** the Tauri build succeeds. Pushing `main` alone does **not** run this workflow.
+On tag push (or manual **Desktop release** dispatch), `desktop-release.yml` uploads each installer to R2 **after** the Tauri build succeeds.
+
+**Important:** **Desktop CI** succeeding on `main` does not upload anything to R2. You must run **Desktop release** (push a `v*` tag or use **Run workflow** in Actions).
+
+```bash
+# from a clean main, after CI is green:
+git tag v0.1.0
+git push origin v0.1.0
+```
+
+Pushing `main` without a tag does **not** run the release workflow.
 
 **Verify wiring:** Actions → **R2 smoke test** → Run workflow. You should see `OK` for each secret/variable. Re-run after adding secrets (old runs do not pick up new values).
 
