@@ -4,6 +4,13 @@
 # Website CDN URLs (after R2 + custom domain):
 #   https://cdn.interviewveil.com/v1/InterviewVeil-mac.dmg
 #   https://cdn.interviewveil.com/v1/InterviewVeil-windows-setup.exe
+#
+# macOS notarization is performed in its own step ("Notarize + staple macOS")
+# with an explicit, bounded wait, retry, and stapling. tauri-action only signs;
+# it does NOT notarize (we withhold APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID from it).
+# This avoids the old failure mode where tauri-action's inline `notarytool --wait`
+# blocked with no timeout until GitHub cancelled the 6-hour job
+# ("Error: The operation was canceled").
 name: Desktop release
 
 on:
@@ -21,6 +28,8 @@ permissions:
 
 jobs:
   build:
+    # Fail clearly instead of hanging toward GitHub's 6-hour job cap.
+    timeout-minutes: 90
     env:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
       NO_UPDATER_CONFIG: '{"bundle":{"createUpdaterArtifacts":false}}'
@@ -52,9 +61,16 @@ jobs:
 
       - run: npm ci
 
+      # Decides signing/notarization from repo vars AND whether the Apple secrets
+      # are actually present, so we fail fast with a clear message instead of a
+      # cryptic notary error later.
       - name: Release signing flags
         id: release_flags
         shell: bash
+        env:
+          A_ID: ${{ secrets.APPLE_ID }}
+          A_PW: ${{ secrets.APPLE_PASSWORD }}
+          A_TEAM: ${{ secrets.APPLE_TEAM_ID }}
         run: |
           mac_sign=false
           if [ "${{ matrix.platform }}" = "macos-latest" ] && [ "${{ vars.MACOS_CODE_SIGNING }}" = "true" ]; then
@@ -64,14 +80,21 @@ jobs:
           if [ "${{ vars.TAURI_UPDATER_SIGNING }}" = "true" ]; then
             updater_sign=true
           fi
+          # Notarize only when signing is on AND all three notary credentials exist.
+          mac_notarize=false
+          if [ "$mac_sign" = "true" ] && [ -n "$A_ID" ] && [ -n "$A_PW" ] && [ -n "$A_TEAM" ]; then
+            mac_notarize=true
+          fi
           echo "mac_sign=$mac_sign" >> "$GITHUB_OUTPUT"
           echo "updater_sign=$updater_sign" >> "$GITHUB_OUTPUT"
+          echo "mac_notarize=$mac_notarize" >> "$GITHUB_OUTPUT"
+
           if [ "$mac_sign" = "true" ]; then
-            echo "macOS: Apple codesign + notarization (MACOS_CODE_SIGNING=true)"
-            if [ "${{ vars.MACOS_NOTARIZATION_SKIP_WAIT }}" = "true" ]; then
-              echo "Notarization: --skip-stapling (submit only; CI will not wait hours on first notarize)"
+            echo "macOS: Apple codesign (MACOS_CODE_SIGNING=true)"
+            if [ "$mac_notarize" = "true" ]; then
+              echo "macOS: notarization will run in its own step (explicit wait + retry + staple)"
             else
-              echo "Notarization: waiting for Apple (first app can take 1–3+ hours — set MACOS_NOTARIZATION_SKIP_WAIT=true to avoid)"
+              echo "::warning::MACOS_CODE_SIGNING=true but APPLE_ID / APPLE_PASSWORD / APPLE_TEAM_ID secrets are missing. The .dmg will be signed but NOT notarized — Gatekeeper will block it. Set the missing secrets."
             fi
           elif [ "${{ matrix.platform }}" = "macos-latest" ]; then
             echo "macOS: unsigned build (--no-sign, no APPLE_* env)"
@@ -93,12 +116,12 @@ jobs:
           if [ "${{ steps.release_flags.outputs.updater_sign }}" != "true" ]; then
             args="$args --config $NO_UPDATER_CONFIG"
           fi
-          if [ "${{ vars.MACOS_NOTARIZATION_SKIP_WAIT }}" = "true" ]; then
-            args="$args --skip-stapling"
-          fi
           echo "args=$args" >> "$GITHUB_OUTPUT"
 
-      # tauri-action forwards APPLE_* even when empty, which triggers keychain import failures.
+      # tauri-action forwards APPLE_* even when empty, which triggers keychain import
+      # failures. It also notarizes inline when APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID
+      # are set — so we deliberately withhold those here and notarize in the dedicated
+      # step below, where the wait is explicit, bounded and retryable.
       - name: Build release (macOS signed)
         if: matrix.platform == 'macos-latest' && steps.release_flags.outputs.mac_sign == 'true'
         uses: tauri-apps/tauri-action@v0
@@ -111,9 +134,6 @@ jobs:
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
           APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
           APPLE_SIGNING_IDENTITY: ${{ secrets.APPLE_SIGNING_IDENTITY }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         with:
           projectPath: .
           tagName: ${{ env.RELEASE_TAG }}
@@ -122,6 +142,77 @@ jobs:
           releaseDraft: false
           includeUpdaterJson: ${{ steps.release_flags.outputs.updater_sign == 'true' }}
           args: ${{ steps.mac_signed_args.outputs.args }}
+
+      # Explicit notarization: submit once, keep the submission id, wait with a
+      # per-attempt cap and retries (re-waiting the SAME submission, never blindly
+      # re-uploading), then staple the ticket into the .dmg. A wait timeout stops
+      # this client only — Apple keeps processing — so retrying the wait is correct.
+      - name: Notarize + staple macOS
+        if: matrix.platform == 'macos-latest' && steps.release_flags.outputs.mac_notarize == 'true'
+        timeout-minutes: 90
+        shell: bash
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_PASSWORD: ${{ secrets.APPLE_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          SKIP_WAIT: ${{ vars.MACOS_NOTARIZATION_SKIP_WAIT }}
+        run: |
+          set -euo pipefail
+          DMG=$(ls src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg 2>/dev/null | head -1)
+          if [ -z "${DMG:-}" ] || [ ! -f "$DMG" ]; then
+            echo "::error::No macOS .dmg found under src-tauri/target/.../bundle/dmg to notarize."
+            exit 1
+          fi
+          echo "Notarizing: $DMG"
+          AUTH=(--apple-id "$APPLE_ID" --password "$APPLE_PASSWORD" --team-id "$APPLE_TEAM_ID")
+
+          # Escape hatch for a pathologically slow FIRST submission: submit only,
+          # don't wait, don't staple. Unset the var for a normal (stapled) release.
+          if [ "$SKIP_WAIT" = "true" ]; then
+            echo "::warning::MACOS_NOTARIZATION_SKIP_WAIT=true — submitting WITHOUT waiting or stapling. Gatekeeper may still block the .dmg until Apple finishes. Unset this for a normal release."
+            xcrun notarytool submit "$DMG" "${AUTH[@]}" --wait --timeout 3m || true
+            echo "Submitted. Track status in App Store Connect → notary history, then re-run without SKIP_WAIT to staple."
+            exit 0
+          fi
+
+          # Submit ONCE and keep the id so retries wait on the same submission.
+          SUBMIT_JSON=$(xcrun notarytool submit "$DMG" "${AUTH[@]}" --output-format json)
+          echo "$SUBMIT_JSON"
+          SID=$(echo "$SUBMIT_JSON" | jq -r '.id')
+          if [ -z "$SID" ] || [ "$SID" = "null" ]; then
+            echo "::error::notarytool submit returned no submission id."
+            exit 1
+          fi
+          echo "Submission id: $SID"
+
+          # Bounded wait with retries. Apple reports most notarizations finish in
+          # minutes; first submissions for a new Developer ID can take longer.
+          for attempt in 1 2 3; do
+            echo "Waiting for notarization (attempt $attempt/3, 40m cap each)..."
+            if xcrun notarytool wait "$SID" "${AUTH[@]}" --timeout 40m; then
+              break
+            fi
+            echo "Wait attempt $attempt did not reach a terminal state; current status:"
+            xcrun notarytool info "$SID" "${AUTH[@]}" || true
+            if [ "$attempt" -lt 3 ]; then
+              sleep $((attempt * 30))
+            fi
+          done
+
+          STATUS=$(xcrun notarytool info "$SID" "${AUTH[@]}" --output-format json | jq -r '.status')
+          echo "Final notarization status: $STATUS"
+          if [ "$STATUS" != "Accepted" ]; then
+            echo "::warning::Fetching notary log for diagnostics..."
+            xcrun notarytool log "$SID" "${AUTH[@]}" "$RUNNER_TEMP/notary-log.json" || true
+            cat "$RUNNER_TEMP/notary-log.json" 2>/dev/null || true
+            echo "::error::Notarization did not reach Accepted (status=$STATUS)."
+            exit 1
+          fi
+
+          echo "Stapling notarization ticket into $DMG ..."
+          xcrun stapler staple "$DMG"
+          xcrun stapler validate "$DMG"
+          echo "Notarized + stapled: $DMG"
 
       - name: Build release (Windows + updater signing)
         if: matrix.platform == 'windows-latest' && steps.release_flags.outputs.updater_sign == 'true'

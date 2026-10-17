@@ -26,7 +26,7 @@ if [[ -n "${out:-}" && -f "$out" ]]; then
     ENT="$(cd "$(dirname "$0")/.." && pwd)/Entitlements.plist"
     if [[ -f "$ENT" ]]; then
       codesign --force --sign - \
-        --identifier com.interviewveil.app \
+        --identifier com.interviewveil.desktop \
         --entitlements "$ENT" \
         "$out" >/dev/null 2>&1 || true
     fi

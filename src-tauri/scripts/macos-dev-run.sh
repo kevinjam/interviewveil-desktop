@@ -44,7 +44,7 @@ fi
 
 if [[ -f "$ENT" ]] && { [[ "$need_sign" -eq 1 ]] || ! codesign --verify --deep "$APP" >/dev/null 2>&1; }; then
   codesign --force --sign - \
-    --identifier com.interviewveil.app \
+    --identifier com.interviewveil.desktop \
     --entitlements "$ENT" \
     "$APP" >/dev/null 2>&1 || true
 fi

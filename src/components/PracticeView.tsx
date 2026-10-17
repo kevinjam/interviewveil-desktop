@@ -1,6 +1,7 @@
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { ChatQuickActions } from "@/components/ChatQuickActions";
+import { AnswerMarkdown } from "@/components/AnswerMarkdown";
 import { SectionsView } from "@/components/SectionsView";
 import { formatHotkeyLabel } from "@/lib/formatHotkey";
 import { usePracticeStore } from "@/stores/practiceStore";
@@ -81,7 +82,11 @@ export function PracticeView({ hotkeys, onCapture, onSend, onListen, onClear }: 
 
       {p.question && p.phase !== "tutoring" && <SectionsView raw={p.question} />}
 
-      {p.response && <SectionsView raw={p.response} />}
+      {p.response && (
+        <div className="answer-live min-w-0" data-phase={p.phase}>
+          <AnswerMarkdown content={p.response} />
+        </div>
+      )}
 
       {canClear && (
         <button

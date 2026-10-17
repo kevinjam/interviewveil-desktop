@@ -11,7 +11,7 @@ use tauri::AppHandle;
 
 const MAX_WIDTH: u32 = 1920;
 const MAX_HEIGHT: u32 = 1080;
-const IV_BUNDLE: &str = "com.interviewveil.app";
+const IV_BUNDLE: &str = "com.interviewveil.desktop";
 
 #[link(name = "CoreGraphics", kind = "framework")]
 extern "C" {

@@ -3,6 +3,7 @@
  * (which holds the transcription key and deducts plan listening seconds).
  */
 import { API_URL, errorMessage, sessionHeaders } from "@/lib/api";
+import { sanitizeUserError } from "@/lib/userErrors";
 import { signOutDevice } from "@/lib/signOut";
 
 export interface TranscribeOptions {
@@ -31,7 +32,12 @@ export async function transcribe(opts: TranscribeOptions): Promise<string> {
   if (!res.ok) {
     if (res.status === 401) void signOutDevice();
     const body = (await res.json().catch(() => null)) as unknown;
-    throw new Error(errorMessage(body, `Transcription failed (${res.status})`));
+    throw new Error(
+      sanitizeUserError(
+        errorMessage(body, "We couldn't transcribe that audio. Please try again."),
+        "We couldn't transcribe that audio. Please try again.",
+      ),
+    );
   }
   const json = (await res.json()) as { text?: string };
   return (json.text ?? "").trim();

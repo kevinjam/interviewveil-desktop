@@ -175,3 +175,72 @@ input[type="range"] {
 .island-pill {
   -webkit-app-region: no-drag;
 }
+
+/* Live-assist answer layout (TechScreen-style: thoughts → code). */
+.answer-md--sections {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+}
+
+.answer-md__section {
+  margin: 0;
+}
+
+.answer-md__section--thoughts {
+  margin-bottom: 0.35rem;
+}
+
+.answer-md__section--code {
+  margin-top: 0.65rem;
+}
+
+.answer-md__section--complexity {
+  margin-top: 0.75rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.answer-md__section-title {
+  margin: 0 0 0.35rem;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.25;
+  color: var(--text);
+  text-transform: none;
+}
+
+.answer-md__section-title--meta {
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
+.answer-md__section-title--default {
+  margin-top: 0.85rem;
+  font-size: 11px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--brand);
+}
+
+.answer-md__section--default:first-child .answer-md__section-title--default {
+  margin-top: 0;
+}
+
+.answer-md__code-block {
+  box-shadow: 0 1px 0 rgb(148 163 184 / 8%) inset;
+}
+
+#practice-body .answer-md {
+  user-select: text;
+}
+
+#practice-body .answer-md pre,
+#practice-body .answer-md code {
+  user-select: text;
+}

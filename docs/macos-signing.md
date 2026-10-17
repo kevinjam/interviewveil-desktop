@@ -126,25 +126,20 @@ Remove or fix any **old placeholder** `APPLE_*` secrets from earlier attempts.
 3. **First notarization:** set `MACOS_NOTARIZATION_SKIP_WAIT=true` so CI finishes in ~minutes instead of waiting on Apple for hours (see below).
 4. Download the new `.dmg` from the release or R2 and install—Gatekeeper should accept it without “damaged”.
 
-## Notarization stuck for hours in GitHub Actions?
+## How CI notarizes now (explicit wait + retry + staple)
 
-Your log is normal **after** compile/sign:
+The **Desktop release** workflow no longer lets `tauri-action` notarize inline (that `--wait` had **no timeout and no retry**, so a slow first submission blocked until GitHub cancelled the job at its 6-hour cap → the opaque `Error: The operation was canceled.`).
 
-```text
-Notarizing .../InterviewVeil.app
-```
+Instead, `tauri-action` only **signs** (it is given the `APPLE_CERTIFICATE*` secrets but **not** `APPLE_ID`/`APPLE_PASSWORD`/`APPLE_TEAM_ID`). A dedicated **`Notarize + staple macOS`** step then:
 
-The app is **already built and signed**. Tauri is **blocked waiting for Apple’s notary service** to finish. The **first** notarization for a new Developer ID / bundle id often takes **30 minutes to several hours**; Apple’s queue can be slow.
+1. Submits the signed `.dmg` with `xcrun notarytool submit … --output-format json` **once** and keeps the submission id.
+2. Waits with `xcrun notarytool wait <id> --timeout 40m`, up to **3 attempts** (re-waiting the **same** submission, never blindly re-uploading).
+3. Checks `notarytool info <id>` for status **`Accepted`**; on anything else it pulls `notarytool log` into the run and fails with the diagnostic.
+4. Staples the ticket into the `.dmg` (`xcrun stapler staple`) and validates it (`xcrun stapler validate`).
 
-**What to do right now**
+Guard rails: the job has **`timeout-minutes: 90`** and the notarize step **`timeout-minutes: 90`**, so a hang fails clearly instead of eating the 6-hour cap. A credential **preflight** (`Release signing flags`) computes `mac_notarize` from `MACOS_CODE_SIGNING=true` **and** all three notary secrets; if any secret is missing you get a loud `::warning::` and a signed-but-not-notarized `.dmg` rather than a cryptic failure.
 
-1. You can **cancel** the workflow if it has been running 2+ hours with no new log lines—the signed `.app` in the runner is discarded, but you can re-run.
-2. In the repo, set variable **`MACOS_NOTARIZATION_SKIP_WAIT`** = **`true`**, push the workflow (or use latest `main`), and **re-run Desktop release**. That passes **`--skip-stapling`**: notarization is **submitted** but CI **does not wait**.
-3. Check status in [App Store Connect → Notifications / notary history](https://appstoreconnect.apple.com/) or Apple Developer notarization logs if available for your account.
-
-After Apple has notarized this app once, unset `MACOS_NOTARIZATION_SKIP_WAIT` so later releases **staple** the ticket (slightly better offline Gatekeeper behavior).
-
-**Without `--skip-stapling`:** the job can sit on `Notarizing...` until Apple returns—this is not a Rust compile hang.
+Apple reports most notarizations finish in **minutes**; a **first** submission for a brand-new Developer ID / bundle id can take longer. If it is pathologically slow, set variable **`MACOS_NOTARIZATION_SKIP_WAIT`** = **`true`** and re-run: the step then **submits without waiting or stapling** (you track status in [App Store Connect → notary history](https://appstoreconnect.apple.com/)). Unset it afterwards so normal releases are **stapled**.
 
 ## “Apple could not verify … is free of malware”
 
@@ -243,7 +238,8 @@ If `security import` fails locally, CI will fail with `SecKeychainItemImport`. F
 | `MACOS_CODE_SIGNING` | macOS release job |
 |----------------------|-------------------|
 | unset / not `true` | **Unsigned** (`--no-sign`, no `APPLE_*` env) — **do not ship to end users** |
-| `true` + valid secrets | Signed + notarized `.dmg` |
+| `true` + `APPLE_CERTIFICATE*` + all three notary secrets | Signed → **notarized + stapled** `.dmg` |
+| `true` but a notary secret missing | Signed but **not notarized** — CI warns; Gatekeeper will block |
 
 Windows SmartScreen is separate; see README (OV / Azure Trusted Signing).
 
