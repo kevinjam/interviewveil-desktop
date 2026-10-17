@@ -9,7 +9,6 @@ import { IslandSettingsTab } from "@/components/island/IslandSettingsTab";
 import { IslandPlansTab } from "@/components/island/IslandPlansTab";
 import { IslandProfileTab } from "@/components/island/IslandProfileTab";
 import { BrandMark } from "@/components/BrandMark";
-import { useExitOverlayWhenSignedOut } from "@/hooks/useExitOverlayWhenSignedOut";
 import { useSettingsStore } from "@/stores/settingsStore";
 import "@/styles/island.css";
 
@@ -44,7 +43,6 @@ export default function IslandApp() {
   const pillRef = useRef<HTMLDivElement>(null);
 
   const settings = useSettingsStore();
-  useExitOverlayWhenSignedOut();
 
   const openMenu = useCallback((nextTab?: IslandTab) => {
     if (nextTab) setTab(nextTab);

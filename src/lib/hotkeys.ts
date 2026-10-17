@@ -4,7 +4,7 @@ export const HOTKEY_ACTIONS = [
   { id: "send_screenshots", label: "Send to AI", group: "Assist", default: "CommandOrControl+Enter" },
   { id: "record", label: "Listen", group: "Assist", default: "CommandOrControl+3" },
   { id: "clear_screenshots", label: "Clear screenshots", group: "Assist", default: "CommandOrControl+Alt+Backspace" },
-  { id: "clear_chat", label: "Clear answers", group: "Assist", default: "CommandOrControl+Alt+K" },
+  { id: "clear_chat", label: "Clear answers", group: "Assist", default: "CommandOrControl+/" },
   { id: "new_question", label: "New question", group: "Practice", default: "CommandOrControl+4" },
   { id: "submit_answer", label: "Get feedback", group: "Practice", default: "CommandOrControl+5" },
   { id: "scroll_up", label: "Scroll up", group: "Chat", default: "CommandOrControl+Alt+Up" },
@@ -112,6 +112,7 @@ const KEY_SYMBOLS: Record<string, string> = {
   Return: "↩",
   Space: "Space",
   Tab: "⇥",
+  "/": "/",
 };
 
 /** `CommandOrControl+Alt+Up` → ["⌘", "⌥", "↑"] (or Ctrl/Alt names off macOS). */

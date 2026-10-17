@@ -1,6 +1,7 @@
 mod audio;
 mod capture;
 mod hotkeys;
+mod messages;
 mod window;
 
 use audio::AudioState;
@@ -95,6 +96,7 @@ pub fn run() {
             window::show_permissions,
             window::enter_overlay,
             window::exit_overlay,
+            window::sign_out,
             window::advance_after_auth,
             window::is_overlay_active,
             window::permissions::permissions_status,

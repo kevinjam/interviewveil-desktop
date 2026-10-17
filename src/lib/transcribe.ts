@@ -3,7 +3,7 @@
  * (which holds the transcription key and deducts plan listening seconds).
  */
 import { API_URL, errorMessage, sessionHeaders } from "@/lib/api";
-import { useAuthStore } from "@/stores/authStore";
+import { signOutDevice } from "@/lib/signOut";
 
 export interface TranscribeOptions {
   wavBase64: string;
@@ -29,7 +29,7 @@ export async function transcribe(opts: TranscribeOptions): Promise<string> {
     body: form,
   });
   if (!res.ok) {
-    if (res.status === 401) useAuthStore.getState().signOutLocal();
+    if (res.status === 401) void signOutDevice();
     const body = (await res.json().catch(() => null)) as unknown;
     throw new Error(errorMessage(body, `Transcription failed (${res.status})`));
   }

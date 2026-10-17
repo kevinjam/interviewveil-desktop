@@ -8,8 +8,11 @@ pub mod permissions;
 use island_tracker::IslandTrackerState;
 use tauri::{AppHandle, Emitter, LogicalSize, Manager, WebviewWindow};
 use tauri_plugin_global_shortcut::GlobalShortcutExt;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use parking_lot::Mutex;
+
+static SIGN_OUT_BUSY: AtomicBool = AtomicBool::new(false);
 
 pub use exclusion::apply_capture_exclusion;
 
@@ -368,6 +371,28 @@ pub fn enter_overlay(app: AppHandle) -> Result<(), String> {
     crate::hotkeys::activate_overlay_hotkeys(&app);
     emit_gate(&app, "overlay");
     Ok(())
+}
+
+/// End the session on this device: stop capture, clear overlay, show the login card.
+#[tauri::command]
+pub fn sign_out(app: AppHandle) -> Result<(), String> {
+    if SIGN_OUT_BUSY.swap(true, Ordering::SeqCst) {
+        return Ok(());
+    }
+    struct SignOutGuard;
+    impl Drop for SignOutGuard {
+        fn drop(&mut self) {
+            SIGN_OUT_BUSY.store(false, Ordering::SeqCst);
+        }
+    }
+    let _guard = SignOutGuard;
+
+    *app.state::<GateState>().overlay.lock() = false;
+    if let Some(audio) = app.try_state::<crate::audio::AudioState>() {
+        let _ = crate::audio::stop_recording_if_active(&app, &audio);
+    }
+    let _ = app.emit("auth-signed-out", ());
+    exit_overlay(app)
 }
 
 #[tauri::command]

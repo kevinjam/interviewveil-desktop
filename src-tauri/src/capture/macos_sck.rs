@@ -12,7 +12,6 @@ use tauri::AppHandle;
 const MAX_WIDTH: u32 = 1920;
 const MAX_HEIGHT: u32 = 1080;
 const IV_BUNDLE: &str = "com.interviewveil.app";
-const PERMISSION_HINT: &str = "Screen Recording is required for InterviewVeil.app. Enable it in System Settings → Privacy & Security → Screen Recording, then fully quit InterviewVeil and run npm run tauri dev again. The debug app must be launched as InterviewVeil.app (not as a child of Cursor/Terminal).";
 
 #[link(name = "CoreGraphics", kind = "framework")]
 extern "C" {
@@ -115,19 +114,7 @@ fn fit_output_size(display: &SCDisplay) -> (u32, u32) {
 }
 
 fn tcc_message(err: impl std::fmt::Display) -> String {
-    let msg = err.to_string();
-    let lowered = msg.to_lowercase();
-    if lowered.contains("tcc")
-        || lowered.contains("declined")
-        || lowered.contains("permission")
-        || lowered.contains("not authorized")
-        || lowered.contains("denied")
-        || lowered.contains("unavailable")
-    {
-        format!("{PERMISSION_HINT} ({msg})")
-    } else {
-        format!("Screenshot failed: {msg}")
-    }
+    crate::messages::map_screen_capture_error(err)
 }
 
 fn capture_rgba_on_main() -> Result<RgbaImage, String> {

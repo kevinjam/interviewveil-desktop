@@ -1,5 +1,6 @@
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { API_URL, WEB_URL, apiFetch } from "@/lib/api";
+import { signOutDevice } from "@/lib/signOut";
 import { useAuthStore, type AccountInfo } from "@/stores/authStore";
 import type { Plan } from "@/types";
 
@@ -17,7 +18,7 @@ export async function refreshAccount(): Promise<AccountInfo | null> {
 
 export async function logout(): Promise<void> {
   await apiFetch("/auth/logout", { method: "POST" }).catch(() => {});
-  useAuthStore.getState().signOutLocal();
+  await signOutDevice();
 }
 
 interface DesktopLogin {

@@ -75,6 +75,7 @@ async function runModel(
     return await streamAnswer({
       plan: useAuthStore.getState().account?.plan ?? "free",
       kind,
+      mode: useSettingsStore.getState().mode,
       system,
       userMessage,
       images,

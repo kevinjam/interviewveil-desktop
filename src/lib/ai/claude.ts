@@ -1,6 +1,6 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { API_URL, errorMessage, sessionHeaders } from "@/lib/api";
-import type { Plan } from "@/types";
+import type { InterviewMode, Plan } from "@/types";
 
 export interface StreamImage {
   dataBase64: string;
@@ -12,6 +12,8 @@ export interface StreamRequest {
   plan: Plan;
   /** What this response is for; recorded in usage history. */
   kind: "question" | "review" | "explain" | "follow_up";
+  /** Interview type; the API may route coding to `MODEL_CODING`. */
+  mode?: InterviewMode;
   system: string;
   userMessage: string;
   imageBase64?: string;
@@ -30,7 +32,11 @@ export async function streamClaude(req: StreamRequest): Promise<string> {
   const client = new Anthropic({
     apiKey: "managed-by-interviewveil-api",
     baseURL: API_URL,
-    defaultHeaders: { ...sessionHeaders(), "x-interviewveil-kind": req.kind },
+    defaultHeaders: {
+      ...sessionHeaders(),
+      "x-interviewveil-kind": req.kind,
+      ...(req.mode ? { "x-interviewveil-mode": req.mode } : {}),
+    },
     dangerouslyAllowBrowser: true,
     maxRetries: 1,
   });
