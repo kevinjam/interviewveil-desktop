@@ -68,6 +68,11 @@ jobs:
           echo "updater_sign=$updater_sign" >> "$GITHUB_OUTPUT"
           if [ "$mac_sign" = "true" ]; then
             echo "macOS: Apple codesign + notarization (MACOS_CODE_SIGNING=true)"
+            if [ "${{ vars.MACOS_NOTARIZATION_SKIP_WAIT }}" = "true" ]; then
+              echo "Notarization: --skip-stapling (submit only; CI will not wait hours on first notarize)"
+            else
+              echo "Notarization: waiting for Apple (first app can take 1–3+ hours — set MACOS_NOTARIZATION_SKIP_WAIT=true to avoid)"
+            fi
           elif [ "${{ matrix.platform }}" = "macos-latest" ]; then
             echo "macOS: unsigned build (--no-sign, no APPLE_* env)"
           fi
@@ -76,6 +81,22 @@ jobs:
           else
             echo "Tauri updater artifacts disabled (installer-only release)"
           fi
+
+      - name: macOS signed tauri args
+        if: matrix.platform == 'macos-latest' && steps.release_flags.outputs.mac_sign == 'true'
+        id: mac_signed_args
+        shell: bash
+        env:
+          NO_UPDATER_CONFIG: ${{ env.NO_UPDATER_CONFIG }}
+        run: |
+          args="--target universal-apple-darwin"
+          if [ "${{ steps.release_flags.outputs.updater_sign }}" != "true" ]; then
+            args="$args --config $NO_UPDATER_CONFIG"
+          fi
+          if [ "${{ vars.MACOS_NOTARIZATION_SKIP_WAIT }}" = "true" ]; then
+            args="$args --skip-stapling"
+          fi
+          echo "args=$args" >> "$GITHUB_OUTPUT"
 
       # tauri-action forwards APPLE_* even when empty, which triggers keychain import failures.
       - name: Build release (macOS signed)
@@ -100,7 +121,7 @@ jobs:
           releaseBody: Download the installer for your platform below.
           releaseDraft: false
           includeUpdaterJson: ${{ steps.release_flags.outputs.updater_sign == 'true' }}
-          args: ${{ steps.release_flags.outputs.updater_sign == 'true' && matrix.args || format('{0} --config {1}', matrix.args, env.NO_UPDATER_CONFIG) }}
+          args: ${{ steps.mac_signed_args.outputs.args }}
 
       - name: Build release (Windows + updater signing)
         if: matrix.platform == 'windows-latest' && steps.release_flags.outputs.updater_sign == 'true'

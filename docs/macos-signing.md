@@ -115,6 +115,7 @@ Apple ID login for notarization must use an **app-specific password**, not your 
 | Variable | Value |
 |----------|--------|
 | `MACOS_CODE_SIGNING` | `true` |
+| `MACOS_NOTARIZATION_SKIP_WAIT` | `true` for **first** signed release (recommended), then remove |
 
 Remove or fix any **old placeholder** `APPLE_*` secrets from earlier attempts.
 
@@ -122,8 +123,28 @@ Remove or fix any **old placeholder** `APPLE_*` secrets from earlier attempts.
 
 1. **Actions** → **Desktop release** → **Run workflow** (or push a `v*` tag).
 2. Open the **macos-latest** job → confirm **Build release (macOS signed)** ran (not “unsigned”).
-3. Wait for notarization (first run can take several minutes).
+3. **First notarization:** set `MACOS_NOTARIZATION_SKIP_WAIT=true` so CI finishes in ~minutes instead of waiting on Apple for hours (see below).
 4. Download the new `.dmg` from the release or R2 and install—Gatekeeper should accept it without “damaged”.
+
+## Notarization stuck for hours in GitHub Actions?
+
+Your log is normal **after** compile/sign:
+
+```text
+Notarizing .../InterviewVeil.app
+```
+
+The app is **already built and signed**. Tauri is **blocked waiting for Apple’s notary service** to finish. The **first** notarization for a new Developer ID / bundle id often takes **30 minutes to several hours**; Apple’s queue can be slow.
+
+**What to do right now**
+
+1. You can **cancel** the workflow if it has been running 2+ hours with no new log lines—the signed `.app` in the runner is discarded, but you can re-run.
+2. In the repo, set variable **`MACOS_NOTARIZATION_SKIP_WAIT`** = **`true`**, push the workflow (or use latest `main`), and **re-run Desktop release**. That passes **`--skip-stapling`**: notarization is **submitted** but CI **does not wait**.
+3. Check status in [App Store Connect → Notifications / notary history](https://appstoreconnect.apple.com/) or Apple Developer notarization logs if available for your account.
+
+After Apple has notarized this app once, unset `MACOS_NOTARIZATION_SKIP_WAIT` so later releases **staple** the ticket (slightly better offline Gatekeeper behavior).
+
+**Without `--skip-stapling`:** the job can sit on `Notarizing...` until Apple returns—this is not a Rust compile hang.
 
 You do **not** create an App Store Connect app record or submit for review for this flow.
 
