@@ -146,6 +146,36 @@ After Apple has notarized this app once, unset `MACOS_NOTARIZATION_SKIP_WAIT` so
 
 **Without `--skip-stapling`:** the job can sit on `Notarizing...` until Apple returns—this is not a Rust compile hang.
 
+## “Apple could not verify … is free of malware”
+
+Gatekeeper shows this when the app is **not accepted as notarized** (or notarization failed / never finished). A **Developer ID signature alone is not enough** on current macOS for downloaded apps.
+
+| Symptom | Likely cause |
+|--------|----------------|
+| “Could not verify … malware” | Notarization missing, failed, or CI exited with `--skip-stapling` before Apple **Accepted** |
+| “Damaged” | Usually unsigned + browser quarantine |
+
+**Check the build you installed** (mount the `.dmg`, then):
+
+```bash
+APP="/Volumes/InterviewVeil/InterviewVeil.app"   # adjust volume name if different
+codesign -dv --verbose=4 "$APP" 2>&1 | head -20
+spctl -a -vv "$APP" 2>&1
+xcrun stapler validate "$APP" 2>&1
+```
+
+- **`spctl` rejected / no Team ID** → unsigned or wrong cert  
+- **Signed but `spctl` says not notarized** → re-run release and wait for notarization to **succeed** (see below)  
+- **`stapler validate` failed** → not stapled; can still work **online** if notarization succeeded—if not, fix notarization first  
+
+**Fix for customers:** ship a release where the macOS job logs show notarization **Accepted**, then either waited for staple or re-run without `MACOS_NOTARIZATION_SKIP_WAIT` so the ticket is stapled into the `.app` / `.dmg`.
+
+**Your testing only (not for end users):** if you trust the build, **Right‑click → Open** once, or remove quarantine after install:
+
+```bash
+xattr -dr com.apple.quarantine ~/Applications/InterviewVeil.app
+```
+
 You do **not** create an App Store Connect app record or submit for review for this flow.
 
 ---
