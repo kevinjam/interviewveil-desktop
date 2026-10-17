@@ -3,6 +3,7 @@ import { invoke } from "@tauri-apps/api/core";
 import { Loader2, X } from "lucide-react";
 import { BrandMark } from "@/components/BrandMark";
 import { openWebPage, signInWithBrowser } from "@/lib/account";
+import { listen } from "@tauri-apps/api/event";
 import { useAuthStore } from "@/stores/authStore";
 import { useSettingsStore } from "@/stores/settingsStore";
 
@@ -37,13 +38,18 @@ export function LoginWindow() {
   }, [theme]);
 
   useEffect(() => {
-    if (!hydrated) return;
-    if (token) {
-      void invoke("advance_after_auth").catch(() => {});
-    } else {
-      void invoke("show_login").catch(() => {});
-    }
+    if (!hydrated || !token) return;
+    void invoke("advance_after_auth").catch(() => {});
   }, [hydrated, token]);
+
+  useEffect(() => {
+    void listen("auth-signed-out", () => {
+      abort.current?.abort();
+      setBusy(false);
+      setCode(null);
+      setError(null);
+    }).catch(() => {});
+  }, []);
 
   const start = async () => {
     abort.current?.abort();

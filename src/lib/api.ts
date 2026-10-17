@@ -1,3 +1,4 @@
+import { signOutDevice } from "@/lib/signOut";
 import { useAuthStore } from "@/stores/authStore";
 
 /** InterviewVeil API base URL, fixed at build time (`VITE_API_URL`). */
@@ -48,7 +49,7 @@ export async function apiFetch<T>(path: string, init: RequestInit = {}): Promise
     throw new ApiError("Can't reach the InterviewVeil service. Check your connection.", 0);
   }
   const body = (await res.json().catch(() => null)) as unknown;
-  if (res.status === 401 && useAuthStore.getState().token) useAuthStore.getState().signOutLocal();
+  if (res.status === 401 && useAuthStore.getState().token) void signOutDevice();
   if (!res.ok) throw new ApiError(errorMessage(body, `Request failed (${res.status})`), res.status);
   return body as T;
 }

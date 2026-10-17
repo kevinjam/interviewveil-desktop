@@ -46,7 +46,7 @@ export const useSettingsStore = create<SettingsState>()(
     }),
     {
       name: STORAGE_KEY,
-      version: 6,
+      version: 7,
       // Older versions stored API keys, billing state and server-controlled
       // choices (model, difficulty) here; drop them, keep preferences.
       // Fill in defaults for shortcut actions added after the user's settings were saved.
@@ -76,6 +76,13 @@ export const useSettingsStore = create<SettingsState>()(
             if (hk.move_chat_right === "CommandOrControl+Alt+Right") {
               hk.move_chat_right = "CommandOrControl+Right";
             }
+          }
+        }
+        // v7: Clear answers matches Tech Screen (⌘ /), not ⌘ ⌥ K.
+        if (version < 7) {
+          const hk = o.hotkeys as Record<string, string> | undefined;
+          if (hk?.clear_chat === "CommandOrControl+Alt+K") {
+            hk.clear_chat = "CommandOrControl+/";
           }
         }
         return o as unknown as SettingsState;

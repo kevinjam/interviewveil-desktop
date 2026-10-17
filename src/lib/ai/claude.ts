@@ -1,6 +1,8 @@
 import Anthropic from "@anthropic-ai/sdk";
 import { API_URL, errorMessage, sessionHeaders } from "@/lib/api";
-import type { Plan } from "@/types";
+import { sanitizeUserError } from "@/lib/userErrors";
+import { liveAssistHeaders, type LiveAssistContext } from "@/lib/ai/context";
+import type { InterviewMode, Plan } from "@/types";
 
 export interface StreamImage {
   dataBase64: string;
@@ -12,7 +14,10 @@ export interface StreamRequest {
   plan: Plan;
   /** What this response is for; recorded in usage history. */
   kind: "question" | "review" | "explain" | "follow_up";
-  system: string;
+  mode?: InterviewMode;
+  /** Required for question/review; omitted for explain/follow_up (server-owned prompt). */
+  system?: string;
+  liveAssist?: LiveAssistContext;
   userMessage: string;
   imageBase64?: string;
   imageMime?: string;
@@ -30,7 +35,11 @@ export async function streamClaude(req: StreamRequest): Promise<string> {
   const client = new Anthropic({
     apiKey: "managed-by-interviewveil-api",
     baseURL: API_URL,
-    defaultHeaders: { ...sessionHeaders(), "x-interviewveil-kind": req.kind },
+    defaultHeaders: {
+      ...sessionHeaders(),
+      "x-interviewveil-kind": req.kind,
+      ...(req.liveAssist ? liveAssistHeaders(req.liveAssist) : req.mode ? { "x-interviewveil-mode": req.mode } : {}),
+    },
     dangerouslyAllowBrowser: true,
     maxRetries: 1,
   });
@@ -54,22 +63,22 @@ export async function streamClaude(req: StreamRequest): Promise<string> {
   }
   content.push({ type: "text", text: req.userMessage });
 
-  // Free/Essential tiers use Haiku on the server (no effort / fallback betas).
-  const modern = req.plan === "professional" || req.plan === "expert";
+  const liveAssist = req.kind === "explain" || req.kind === "follow_up";
+  // Practice on Pro/Expert: low effort on the server for question/review only (not live assist).
+  const practiceModern =
+    !liveAssist && (req.plan === "professional" || req.plan === "expert");
   const model = "claude-haiku-4-5";
 
   try {
     const stream = client.beta.messages.stream({
       model,
-      max_tokens: 16000,
-      ...(modern && {
-        // Answers are read live while practicing: favour latency over depth.
+      max_tokens: liveAssist ? 8192 : 16000,
+      ...(practiceModern && {
         output_config: { effort: "low" as const },
-        // If a safety classifier declines, re-run on Anthropic's recommended fallback model.
         betas: ["server-side-fallback-2026-07-01"],
         fallbacks: "default" as const,
       }),
-      system: req.system,
+      ...(req.system ? { system: req.system } : {}),
       messages: [{ role: "user", content }],
     });
 
@@ -85,11 +94,8 @@ export async function streamClaude(req: StreamRequest): Promise<string> {
   } catch (e) {
     // Surface the InterviewVeil API's own message (sign-in, quota, rate limit).
     if (e instanceof Anthropic.APIError) {
-      const cause =
-        e instanceof Anthropic.APIConnectionError && e.cause instanceof Error
-          ? ` (${e.cause.message})`
-          : "";
-      throw Object.assign(new Error(errorMessage(e.error, e.message) + cause), { status: e.status });
+      const raw = errorMessage(e.error, e.message);
+      throw Object.assign(new Error(sanitizeUserError(raw)), { status: e.status });
     }
     throw e;
   }

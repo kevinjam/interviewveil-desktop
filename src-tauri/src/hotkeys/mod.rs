@@ -19,7 +19,7 @@ pub const ACTIONS: &[(&str, &str)] = &[
     ("send_screenshots", "CommandOrControl+Enter"),
     ("record", "CommandOrControl+3"),
     ("clear_screenshots", "CommandOrControl+Alt+Backspace"),
-    ("clear_chat", "CommandOrControl+Alt+K"),
+    ("clear_chat", "CommandOrControl+/"),
     ("new_question", "CommandOrControl+4"),
     ("submit_answer", "CommandOrControl+5"),
     ("scroll_up", "CommandOrControl+Alt+Up"),

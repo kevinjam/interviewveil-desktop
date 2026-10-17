@@ -126,11 +126,21 @@ pub fn start_recording(app: AppHandle, state: tauri::State<'_, AudioState>) -> R
     Ok(())
 }
 
-#[tauri::command]
-pub fn stop_recording(app: AppHandle, state: tauri::State<'_, AudioState>) -> Result<(), String> {
-    // Dropping the handle stops capture; the worker then flushes its last segment.
-    state.captures.lock().clear();
+pub fn stop_recording_if_active(app: &AppHandle, state: &AudioState) -> Result<(), String> {
+    let mut captures = state.captures.lock();
+    if captures.is_empty() {
+        return Ok(());
+    }
+    // Drop capture threads off the main thread — joining cpal here during sign-out
+    // has caused deadlocks / crashes when the UI thread is handling the command.
+    let drained: Vec<CaptureHandle> = captures.drain(..).collect();
     app.emit("recording-changed", false)
         .map_err(|e| e.to_string())?;
+    thread::spawn(move || drop(drained));
     Ok(())
+}
+
+#[tauri::command]
+pub fn stop_recording(app: AppHandle, state: tauri::State<'_, AudioState>) -> Result<(), String> {
+    stop_recording_if_active(&app, &state)
 }

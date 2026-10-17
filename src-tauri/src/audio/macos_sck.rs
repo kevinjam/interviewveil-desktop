@@ -37,11 +37,7 @@ pub fn start(tx: Sender<SampleBlock>) -> Result<CaptureHandle, String> {
 }
 
 fn begin_capture(tx: Sender<SampleBlock>) -> Result<SCStream, String> {
-    let content = SCShareableContent::get().map_err(|e| {
-        format!(
-            "Screen Recording permission is required for system audio ({e})"
-        )
-    })?;
+    let content = SCShareableContent::get().map_err(crate::messages::map_screen_capture_error)?;
     let display = content
         .displays()
         .into_iter()

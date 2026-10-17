@@ -1,7 +1,9 @@
 import { useEffect } from "react";
 import { Loader2 } from "lucide-react";
 import { ChatQuickActions } from "@/components/ChatQuickActions";
+import { AnswerMarkdown } from "@/components/AnswerMarkdown";
 import { SectionsView } from "@/components/SectionsView";
+import { formatHotkeyLabel } from "@/lib/formatHotkey";
 import { usePracticeStore } from "@/stores/practiceStore";
 import { useScreenshotStore } from "@/stores/screenshotStore";
 import type { HotkeySettings } from "@/stores/settingsStore";
@@ -18,6 +20,7 @@ export function PracticeView({ hotkeys, onCapture, onSend, onListen, onClear }: 
   const p = usePracticeStore();
   const queued = useScreenshotStore((s) => s.items.length);
   const empty = !p.response && !p.streaming && !p.error && !p.recording && !p.question;
+  const canClear = Boolean(p.response || p.question || p.error) && !p.streaming && !p.recording;
 
   useEffect(() => {
     const el = document.getElementById("practice-scroll");
@@ -79,15 +82,22 @@ export function PracticeView({ hotkeys, onCapture, onSend, onListen, onClear }: 
 
       {p.question && p.phase !== "tutoring" && <SectionsView raw={p.question} />}
 
-      {p.response && <SectionsView raw={p.response} />}
+      {p.response && (
+        <div className="answer-live min-w-0" data-phase={p.phase}>
+          <AnswerMarkdown content={p.response} />
+        </div>
+      )}
 
-      {p.response && !p.streaming && (
+      {canClear && (
         <button
           type="button"
           onClick={onClear}
-          className="window-no-drag text-[12px] font-semibold text-[var(--brand)] hover:underline"
+          className="window-no-drag inline-flex items-center gap-1.5 text-[12px] font-semibold text-[var(--brand)] hover:underline"
         >
           Clear
+          <kbd className="inline-flex items-center justify-center min-w-[22px] h-[18px] px-1 rounded-[7px] bg-[var(--panel-2)] text-[10px] font-semibold text-[var(--text)] tabular-nums border border-[var(--border)] no-underline">
+            {formatHotkeyLabel(hotkeys.clear_chat)}
+          </kbd>
         </button>
       )}
       </div>

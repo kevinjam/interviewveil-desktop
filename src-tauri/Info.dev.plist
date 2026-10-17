@@ -3,7 +3,7 @@
 <plist version="1.0">
 <dict>
   <key>CFBundleIdentifier</key>
-  <string>com.interviewveil.app</string>
+  <string>com.interviewveil.desktop</string>
   <key>CFBundleName</key>
   <string>InterviewVeil</string>
   <key>CFBundleDisplayName</key>

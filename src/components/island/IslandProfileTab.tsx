@@ -1,5 +1,4 @@
 import { useEffect, useRef, useState } from "react";
-import { invoke } from "@tauri-apps/api/core";
 import { ChevronRight, ExternalLink, Globe, Loader2, LogOut, RefreshCw } from "lucide-react";
 import {
   logout,
@@ -231,7 +230,7 @@ function Account({ account, onShowPlans }: { account: AccountInfo; onShowPlans: 
         <button
           type="button"
           onClick={() => {
-            void logout().finally(() => invoke("exit_overlay").catch(() => {}));
+            void logout();
           }}
           className={secondaryBtn}
         >

@@ -9,7 +9,6 @@ import { usePractice } from "@/hooks/usePractice";
 import { useScreenshot } from "@/hooks/useScreenshot";
 import { refreshAccount } from "@/lib/account";
 import { refreshServerConfig } from "@/stores/serverConfigStore";
-import { useExitOverlayWhenSignedOut } from "@/hooks/useExitOverlayWhenSignedOut";
 import { useAuthStore } from "@/stores/authStore";
 import { usePracticeStore } from "@/stores/practiceStore";
 import { MAX_SCREENSHOTS, useScreenshotStore } from "@/stores/screenshotStore";
@@ -21,7 +20,6 @@ export default function ChatApp() {
   const opacity = useSettingsStore((s) => s.opacity);
   const hotkeys = useSettingsStore((s) => s.hotkeys);
   const token = useAuthStore((s) => s.token);
-  useExitOverlayWhenSignedOut();
   const { newQuestion, toggleRecording, submitAnswer, sendScreenshots } = usePractice();
   const { capture } = useScreenshot();
   const response = usePracticeStore((s) => s.response);

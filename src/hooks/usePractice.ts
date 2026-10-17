@@ -3,13 +3,10 @@ import { invoke } from "@tauri-apps/api/core";
 import { listen } from "@tauri-apps/api/event";
 import { streamAnswer } from "@/lib/ai";
 import { refreshAccount } from "@/lib/account";
-import {
-  questionSystemPrompt,
-  reviewSystemPrompt,
-  tutorSystemPrompt,
-  type PromptSettings,
-} from "@/lib/prompts";
+import type { LiveAssistContext } from "@/lib/ai/context";
+import { questionSystemPrompt, reviewSystemPrompt, type PromptSettings } from "@/lib/prompts";
 import { isMeaningfulTranscript, transcribe } from "@/lib/transcribe";
+import { sanitizeUserError } from "@/lib/userErrors";
 import { usePracticeStore } from "@/stores/practiceStore";
 import { useAuthStore } from "@/stores/authStore";
 import { useServerConfigStore } from "@/stores/serverConfigStore";
@@ -40,6 +37,16 @@ function promptSettings(): PromptSettings {
   };
 }
 
+function liveAssistContext(): LiveAssistContext {
+  const s = useSettingsStore.getState();
+  return {
+    mode: s.mode,
+    language: s.language,
+    answerLanguage: s.answerLanguage,
+    customPrompt: s.customPrompt,
+  };
+}
+
 /** Why the user can't make a hosted request right now, or null if they can. */
 function blockedReason(kind: "tokens" | "audio"): string | null {
   const { token, account } = useAuthStore.getState();
@@ -56,10 +63,9 @@ function blockedReason(kind: "tokens" | "audio"): string | null {
 /** Stream one model call into `onDelta`; returns the full text, or null on error. */
 async function runModel(
   kind: StreamRequest["kind"],
-  system: string,
   userMessage: string,
   onDelta: (t: string) => void,
-  images?: StreamImage[],
+  opts: { system?: string; images?: StreamImage[] } = {},
 ): Promise<string | null> {
   const practice = usePracticeStore.getState();
 
@@ -72,16 +78,21 @@ async function runModel(
   practice.setError(null);
   practice.setStreaming(true);
   try {
+    const live = kind === "explain" || kind === "follow_up";
     return await streamAnswer({
       plan: useAuthStore.getState().account?.plan ?? "free",
       kind,
-      system,
+      mode: useSettingsStore.getState().mode,
+      system: opts.system,
+      liveAssist: live ? liveAssistContext() : undefined,
       userMessage,
-      images,
+      images: opts.images,
       onDelta,
     });
   } catch (e) {
-    practice.setError(e instanceof Error ? e.message : "AI request failed");
+    practice.setError(
+      e instanceof Error ? sanitizeUserError(e.message) : "We couldn't generate an answer. Please try again.",
+    );
     return null;
   } finally {
     usePracticeStore.getState().setStreaming(false);
@@ -101,11 +112,7 @@ async function drainListenQueue() {
     const p = usePracticeStore.getState();
     p.setPhase("tutoring");
     let started = false;
-    await runModel(
-      "follow_up",
-      tutorSystemPrompt(promptSettings()),
-      `The interviewer said:\n${text}`,
-      (t) => {
+    await runModel("follow_up", `The interviewer said:\n${text}`, (t) => {
         const store = usePracticeStore.getState();
         if (!started) {
           started = true;
@@ -145,7 +152,11 @@ async function transcribeSegment(seg: AudioSegment) {
     listenQueue.push(text);
     void drainListenQueue();
   } catch (e) {
-    usePracticeStore.getState().setError(e instanceof Error ? e.message : "Transcription failed");
+    usePracticeStore.getState().setError(
+      e instanceof Error
+        ? sanitizeUserError(e.message, "We couldn't transcribe that audio. Please try again.")
+        : "We couldn't transcribe that audio. Please try again.",
+    );
   } finally {
     usePracticeStore.getState().addTranscribing(-1);
     void refreshAccount();
@@ -184,9 +195,9 @@ export function usePractice() {
       : "";
     const full = await runModel(
       "question",
-      questionSystemPrompt(promptSettings()),
       `Give me a new practice question.${avoid}`,
       (t) => usePracticeStore.getState().appendQuestion(t),
+      { system: questionSystemPrompt(promptSettings()) },
     );
     const s = usePracticeStore.getState();
     if (full === null) {
@@ -238,9 +249,9 @@ export function usePractice() {
     const question = p.question.trim() || "(The candidate chose their own question; infer it from the answer.)";
     const full = await runModel(
       "review",
-      reviewSystemPrompt(promptSettings()),
       `<question>\n${question}\n</question>\n\n<candidate_answer>\n${answer}\n</candidate_answer>`,
       (t) => usePracticeStore.getState().appendResponse(t),
+      { system: reviewSystemPrompt(promptSettings()) },
     );
     usePracticeStore.getState().setPhase(full === null ? "answering" : "reviewed");
   }, [stopRecording]);
@@ -273,10 +284,9 @@ export function usePractice() {
     const n = images.length;
     await runModel(
       "explain",
-      tutorSystemPrompt(promptSettings()),
       n === 1
-        ? "Solve or explain the interview question shown in this screenshot."
-        : `Solve or explain the interview question shown in these ${n} screenshots.`,
+        ? "Solve the interview question shown in this screenshot."
+        : `Solve the interview question shown in these ${n} screenshots.`,
       (t) => {
         if (!cleared) {
           cleared = true;
@@ -284,7 +294,7 @@ export function usePractice() {
         }
         usePracticeStore.getState().appendResponse(t);
       },
-      images.map((img) => ({ dataBase64: img.dataBase64, mime: img.mime || "image/jpeg" })),
+      { images: images.map((img) => ({ dataBase64: img.dataBase64, mime: img.mime || "image/jpeg" })) },
     );
   }, []);
 
