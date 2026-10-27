@@ -141,6 +141,27 @@ Guard rails: the job has **`timeout-minutes: 240`** and the notarize step **`tim
 
 Apple reports most notarizations finish in **minutes**; a **first** submission for a brand-new Developer ID / bundle id can take longer. If it is pathologically slow, set variable **`MACOS_NOTARIZATION_SKIP_WAIT`** = **`true`** and re-run: the step then **submits without waiting or stapling** (you track status in [App Store Connect → notary history](https://appstoreconnect.apple.com/)). Unset it afterwards so normal releases are **stapled**.
 
+## “Contains malware” / move to Trash / `CSSMERR_TP_CERT_REVOKED`
+
+macOS may show **“malware”** or **Move to Trash** when:
+
+1. The build is **unsigned** or **not notarized** (common for CI `--no-sign` or missing `APPLE_*` secrets).
+2. The **Developer ID certificate was revoked** — `spctl` / `codesign` then report **`CSSMERR_TP_CERT_REVOKED`** or *“notarization indicates this code has been revoked”*. **Re-stapling or re-uploading the old `.dmg` will not fix this.** You need a **new Developer ID Application** certificate in the Apple Developer portal, a new `.p12` in GitHub secrets, a **fresh signed build**, and **notarization** again.
+3. The DMG was notarized once but Apple **revoked** that notarization (same fix as (2): new cert + new build).
+
+Check any file before shipping to R2 or customers:
+
+```bash
+spctl -a -vv -t install InterviewVeil-mac.dmg
+xcrun stapler validate InterviewVeil-mac.dmg   # optional but recommended
+```
+
+Only upload when `spctl` reports **accepted** and **Notarized Developer ID**.
+
+**Manual R2 upload** after you have a good DMG: `scripts/publish-macos-dmg-to-r2.sh` (uses the same `R2_*` env vars as CI).
+
+---
+
 ## “Apple could not verify … is free of malware”
 
 Gatekeeper shows this when the app is **not accepted as notarized** (or notarization failed / never finished). A **Developer ID signature alone is not enough** on current macOS for downloaded apps.
