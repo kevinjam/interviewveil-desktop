@@ -7,9 +7,25 @@ export const API_URL = (import.meta.env.VITE_API_URL ?? "http://localhost:8787")
 /** InterviewVeil website (sign-up, pricing, dashboard), fixed at build time (`VITE_WEB_URL`). */
 export const WEB_URL = (import.meta.env.VITE_WEB_URL ?? "http://localhost:5173").replace(/\/$/, "");
 
+const APP_VERSION = import.meta.env.VITE_APP_VERSION ?? "0.0.0";
+
+function platformLabel(): string {
+  if (typeof navigator === "undefined") return "unknown";
+  const ua = navigator.userAgent;
+  if (ua.includes("Windows")) return "windows";
+  if (ua.includes("Mac")) return "macos";
+  if (ua.includes("Linux")) return "linux";
+  return navigator.platform?.slice(0, 64) || "unknown";
+}
+
 export function sessionHeaders(): Record<string, string> {
   const token = useAuthStore.getState().token;
-  return token ? { "x-interviewveil-session": token } : {};
+  const headers: Record<string, string> = {
+    "x-interviewveil-app-version": APP_VERSION,
+    "x-interviewveil-platform": platformLabel(),
+  };
+  if (token) headers["x-interviewveil-session"] = token;
+  return headers;
 }
 
 export class ApiError extends Error {

@@ -71,6 +71,34 @@ GitHub → **Actions** → **Desktop release** → **Run workflow** → branch `
 
 Then open the run log → job **build** → step **Publish installer to Cloudflare R2** (should say `Uploading installer to s3://…`).
 
+### Option C — local production build (macOS)
+
+Build a shippable `.dmg` from your own Mac. Release builds **always** use the committed [`.env.production`](.env.production) (`VITE_API_URL=https://api.interviewveil.com`, `VITE_WEB_URL=https://interviewveil.com`) — `vite build` loads it automatically in production mode; the gitignored `.env` (localhost) is dev-only.
+
+```bash
+# 1. One-time: store notary credentials (Apple ID + app-specific password + team ID).
+#    Typed in your Terminal — never committed, never in CI logs.
+xcrun notarytool store-credentials "interviewveil" \
+  --apple-id "you@example.com" --password "<app-specific password>" --team-id "S48V9LQKCT"
+
+# 2. Build + sign (universal: arm64 + Intel, hardened runtime, entitlements).
+export APPLE_SIGNING_IDENTITY="Developer ID Application: Maxwell Zilvester (S48V9LQKCT)"
+npm run tauri:build -- --target universal-apple-darwin
+# → src-tauri/target/universal-apple-darwin/release/bundle/dmg/InterviewVeil_<version>_universal.dmg
+
+# 3. Notarize + staple — without this, Gatekeeper blocks the app for every user.
+DMG=src-tauri/target/universal-apple-darwin/release/bundle/dmg/InterviewVeil_0.1.0_universal.dmg
+xcrun notarytool submit "$DMG" --keychain-profile interviewveil --wait
+xcrun stapler staple "$DMG" && xcrun stapler validate "$DMG"
+
+# 4. Verify before sharing: expect "accepted", not "rejected".
+hdiutil attach -nobrowse -readonly "$DMG"
+spctl -a -vv -t exec /Volumes/InterviewVeil/InterviewVeil.app
+hdiutil detach /Volumes/InterviewVeil
+```
+
+Full signing/notarization troubleshooting: [`docs/macos-signing.md`](docs/macos-signing.md).
+
 Releases are built by [`.github/workflows/desktop-release.yml`](.github/workflows/desktop-release.yml):
 
 ```bash
@@ -90,6 +118,6 @@ https://cdn.interviewveil.com/v1/InterviewVeil-windows-setup.exe
 
 **Before the first release:**
 1. **Auto-updater (optional).** Installer-only releases work without this. When ready: run `npm run tauri signer generate`, set `plugins.updater.pubkey` and fix `plugins.updater.endpoints`, set `bundle.createUpdaterArtifacts` to `true` in `tauri.conf.json`, add secrets `TAURI_SIGNING_PRIVATE_KEY` / `TAURI_SIGNING_PRIVATE_KEY_PASSWORD` (paste the **full** generated key including the `comment:` line), and set repo variable `TAURI_UPDATER_SIGNING=true`.
-2. **Repository variables.** Set `VITE_API_URL` and `VITE_WEB_URL`.
+2. **Production env (committed, not variables).** Release URLs come from [`.env.production`](.env.production) — do **not** pass `VITE_API_URL`/`VITE_WEB_URL` as workflow env vars: an empty GitHub variable would override the file with `""`. Local dev keeps using the gitignored `.env`.
 3. **macOS signing (required for public downloads).** Unsigned CI builds (`MACOS_CODE_SIGNING` unset) are for internal/R2 testing only — Gatekeeper will show **“damaged”** or block the app. For customers: Apple Developer ID + notarize; set `MACOS_CODE_SIGNING=true` and `APPLE_*` secrets. See [`docs/macos-signing.md`](docs/macos-signing.md).
 4. **Windows signing (recommended).** Use Azure Trusted Signing or an OV certificate, to avoid SmartScreen warnings.

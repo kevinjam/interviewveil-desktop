@@ -28,8 +28,10 @@ permissions:
 
 jobs:
   build:
-    # Fail clearly instead of hanging toward GitHub's 6-hour job cap.
-    timeout-minutes: 90
+    # Budget: macOS build (~10-20m) + up to 3 x 40m notary waits (~120m) must fit
+    # with slack. The previous 90m cap was SHORTER than the notarize wait budget,
+    # so GitHub cancelled the job mid-wait ("The operation was canceled.").
+    timeout-minutes: 240
     env:
       RELEASE_TAG: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.version || github.ref_name }}
       NO_UPDATER_CONFIG: '{"bundle":{"createUpdaterArtifacts":false}}'
@@ -122,13 +124,16 @@ jobs:
       # failures. It also notarizes inline when APPLE_ID/APPLE_PASSWORD/APPLE_TEAM_ID
       # are set — so we deliberately withhold those here and notarize in the dedicated
       # step below, where the wait is explicit, bounded and retryable.
+      #
+      # VITE_API_URL/VITE_WEB_URL are deliberately NOT passed as env: the GitHub
+      # vars for them are empty, and an empty env var would override the committed
+      # .env.production with "". Release builds take the prod URLs from
+      # desktop/.env.production, which vite build loads in production mode.
       - name: Build release (macOS signed)
         if: matrix.platform == 'macos-latest' && steps.release_flags.outputs.mac_sign == 'true'
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
-          VITE_WEB_URL: ${{ vars.VITE_WEB_URL }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ steps.release_flags.outputs.updater_sign == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY || '' }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ steps.release_flags.outputs.updater_sign == 'true' && secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD || '' }}
           APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
@@ -143,13 +148,25 @@ jobs:
           includeUpdaterJson: ${{ steps.release_flags.outputs.updater_sign == 'true' }}
           args: ${{ steps.mac_signed_args.outputs.args }}
 
+      # Archive the signed .dmg BEFORE notarization starts: Apple's queue can
+      # outlast the job budget, and a cancelled/failed wait must never lose the
+      # build. Download this artifact if a run dies while notarizing.
+      - name: Preserve signed dmg (pre-notarize artifact)
+        if: matrix.platform == 'macos-latest' && steps.release_flags.outputs.mac_sign == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: InterviewVeil-mac-signed-pre-notarize
+          path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
+          if-no-files-found: error
+          retention-days: 14
+
       # Explicit notarization: submit once, keep the submission id, wait with a
       # per-attempt cap and retries (re-waiting the SAME submission, never blindly
       # re-uploading), then staple the ticket into the .dmg. A wait timeout stops
       # this client only — Apple keeps processing — so retrying the wait is correct.
       - name: Notarize + staple macOS
         if: matrix.platform == 'macos-latest' && steps.release_flags.outputs.mac_notarize == 'true'
-        timeout-minutes: 90
+        timeout-minutes: 150
         shell: bash
         env:
           APPLE_ID: ${{ secrets.APPLE_ID }}
@@ -205,6 +222,7 @@ jobs:
             echo "::warning::Fetching notary log for diagnostics..."
             xcrun notarytool log "$SID" "${AUTH[@]}" "$RUNNER_TEMP/notary-log.json" || true
             cat "$RUNNER_TEMP/notary-log.json" 2>/dev/null || true
+            echo "::notice::Submission $SID keeps processing at Apple even after this job stops. Poll it with 'xcrun notarytool info $SID' (same credentials); if it reaches Accepted later, staple the preserved 'InterviewVeil-mac-signed-pre-notarize' artifact with 'xcrun stapler staple'."
             echo "::error::Notarization did not reach Accepted (status=$STATUS)."
             exit 1
           fi
@@ -219,8 +237,6 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
-          VITE_WEB_URL: ${{ vars.VITE_WEB_URL }}
           TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
           TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
         with:
@@ -237,8 +253,6 @@ jobs:
         uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          VITE_API_URL: ${{ vars.VITE_API_URL }}
-          VITE_WEB_URL: ${{ vars.VITE_WEB_URL }}
         with:
           projectPath: .
           tagName: ${{ env.RELEASE_TAG }}

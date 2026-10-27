@@ -1,11 +1,17 @@
+import { readFileSync } from "node:fs";
 import path from "node:path";
 import { defineConfig } from "vite";
+
+const appVersion = JSON.parse(readFileSync(path.resolve(__dirname, "package.json"), "utf8")).version as string;
 import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 const host = process.env.TAURI_DEV_HOST;
 
 export default defineConfig({
+  define: {
+    "import.meta.env.VITE_APP_VERSION": JSON.stringify(appVersion),
+  },
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: {

@@ -137,9 +137,30 @@ Instead, `tauri-action` only **signs** (it is given the `APPLE_CERTIFICATE*` sec
 3. Checks `notarytool info <id>` for status **`Accepted`**; on anything else it pulls `notarytool log` into the run and fails with the diagnostic.
 4. Staples the ticket into the `.dmg` (`xcrun stapler staple`) and validates it (`xcrun stapler validate`).
 
-Guard rails: the job has **`timeout-minutes: 90`** and the notarize step **`timeout-minutes: 90`**, so a hang fails clearly instead of eating the 6-hour cap. A credential **preflight** (`Release signing flags`) computes `mac_notarize` from `MACOS_CODE_SIGNING=true` **and** all three notary secrets; if any secret is missing you get a loud `::warning::` and a signed-but-not-notarized `.dmg` rather than a cryptic failure.
+Guard rails: the job has **`timeout-minutes: 240`** and the notarize step **`timeout-minutes: 150`** — sized so the build plus **all three 40-minute wait attempts actually fit** (an earlier `90`-minute job cap was *shorter* than the wait budget, so GitHub cancelled the run mid-wait with `The operation was canceled.`). The signed `.dmg` is also uploaded as the **`InterviewVeil-mac-signed-pre-notarize`** artifact **before** waiting, so a failed or cancelled notarization never loses the build — download it and staple manually if Apple accepts the submission later (`xcrun notarytool info <id>` then `xcrun stapler staple`). A credential **preflight** (`Release signing flags`) computes `mac_notarize` from `MACOS_CODE_SIGNING=true` **and** all three notary secrets; if any secret is missing you get a loud `::warning::` and a signed-but-not-notarized `.dmg` rather than a cryptic failure.
 
 Apple reports most notarizations finish in **minutes**; a **first** submission for a brand-new Developer ID / bundle id can take longer. If it is pathologically slow, set variable **`MACOS_NOTARIZATION_SKIP_WAIT`** = **`true`** and re-run: the step then **submits without waiting or stapling** (you track status in [App Store Connect → notary history](https://appstoreconnect.apple.com/)). Unset it afterwards so normal releases are **stapled**.
+
+## “Contains malware” / move to Trash / `CSSMERR_TP_CERT_REVOKED`
+
+macOS may show **“malware”** or **Move to Trash** when:
+
+1. The build is **unsigned** or **not notarized** (common for CI `--no-sign` or missing `APPLE_*` secrets).
+2. The **Developer ID certificate was revoked** — `spctl` / `codesign` then report **`CSSMERR_TP_CERT_REVOKED`** or *“notarization indicates this code has been revoked”*. **Re-stapling or re-uploading the old `.dmg` will not fix this.** You need a **new Developer ID Application** certificate in the Apple Developer portal, a new `.p12` in GitHub secrets, a **fresh signed build**, and **notarization** again.
+3. The DMG was notarized once but Apple **revoked** that notarization (same fix as (2): new cert + new build).
+
+Check any file before shipping to R2 or customers:
+
+```bash
+spctl -a -vv -t install InterviewVeil-mac.dmg
+xcrun stapler validate InterviewVeil-mac.dmg   # optional but recommended
+```
+
+Only upload when `spctl` reports **accepted** and **Notarized Developer ID**.
+
+**Manual R2 upload** after you have a good DMG: `scripts/publish-macos-dmg-to-r2.sh` (uses the same `R2_*` env vars as CI).
+
+---
 
 ## “Apple could not verify … is free of malware”
 
